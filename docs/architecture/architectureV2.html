@@ -1,0 +1,786 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hotMuscles Architecture</title>
+<!-- source of docs/hotMusclesArchitecture_v2.pdf - reprint after any change with headless Edge:
+     msedge.exe --headless=new --disable-gpu --no-pdf-header-footer
+       --print-to-pdf="<project>/docs/hotMusclesArchitecture_v2.pdf" "file:///<project>/docs/architecture/architectureV2.html"
+     img/ holds app screenshots (tests/shotPhase2.gd, ember theme) and the male front body map split into its R/G/B channels -->
+
+<style>
+:root {
+  --paper: #faf8f4;
+  --ink: #1b1d22;
+  --muted: #6b6f78;
+  --faint: #b9bcc3;
+  --line: #e4e0d8;
+  --card: #ffffff;
+  --accent: #ff6a2b;
+  --accentSoft: #ffe6da;
+  --tools: #7a5af8;
+  --toolsSoft: #ece7ff;
+  --data: #12a39a;
+  --dataSoft: #dcf4f1;
+  --app: #ff6a2b;
+  --appSoft: #ffe9df;
+  --saves: #2f6dff;
+  --savesSoft: #e0e9ff;
+  --hot: #ff2a1a;
+  --ok: #2e9e5b;
+  --night: #121317;
+}
+@page { size: A4; margin: 0; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); }
+body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 10.5pt; line-height: 1.45; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.page { width: 210mm; height: 297mm; padding: 15mm 15mm 12mm; position: relative; overflow: hidden; page-break-after: always; break-after: page; }
+.page:last-child { page-break-after: auto; break-after: auto; }
+h1, h2, h3 { font-family: "Bahnschrift", "Segoe UI", sans-serif; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
+h2 { font-size: 18.5pt; line-height: 1.15; }
+h3 { font-size: 12.5pt; margin-bottom: 4px; }
+p { margin: 0 0 8px; }
+.kicker { font-family: "Bahnschrift", sans-serif; font-size: 9pt; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+.lead { font-size: 11.5pt; color: #3a3d45; margin: 8px 0 14px; max-width: 165mm; }
+.foot { position: absolute; left: 15mm; right: 15mm; bottom: 8mm; display: flex; justify-content: space-between; font-size: 8pt; color: var(--faint); }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.note { border-left: 4px solid var(--accent); background: var(--accentSoft); padding: 8px 12px; border-radius: 0 10px 10px 0; font-size: 10pt; margin: 10px 0; }
+.note.blue { border-color: var(--saves); background: var(--savesSoft); }
+.note.teal { border-color: var(--data); background: var(--dataSoft); }
+code, .mono { font-family: "Cascadia Mono", Consolas, monospace; font-size: 8.6pt; }
+code { background: #f0ece4; padding: 0 4px; border-radius: 4px; }
+.tag { display: inline-block; font-size: 8pt; font-weight: 600; padding: 1px 7px; border-radius: 999px; margin: 1px 2px 1px 0; }
+.tTools { background: var(--toolsSoft); color: #4b2fc4; }
+.tData { background: var(--dataSoft); color: #0b6f69; }
+.tApp { background: var(--appSoft); color: #b5420f; }
+.tSaves { background: var(--savesSoft); color: #1d48b5; }
+.phone { border: 6px solid var(--night); border-radius: 22px; overflow: hidden; background: var(--night); box-shadow: 0 6px 18px rgba(0,0,0,0.18); }
+.phone img { display: block; width: 100%; }
+.caption { font-size: 8.5pt; color: var(--muted); text-align: center; margin-top: 5px; }
+svg { display: block; }
+svg text { font-family: "Segoe UI", sans-serif; }
+svg .h { font-family: "Bahnschrift", sans-serif; font-weight: 600; }
+table { border-collapse: collapse; width: 100%; font-size: 9.5pt; }
+th { text-align: left; font-family: "Bahnschrift", sans-serif; font-weight: 600; color: var(--muted); font-size: 8.5pt; letter-spacing: 0.06em; text-transform: uppercase; border-bottom: 1.5px solid var(--line); padding: 4px 6px; }
+td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top; }
+.field { display: flex; justify-content: space-between; gap: 8px; font-size: 9pt; padding: 2px 0; border-bottom: 1px dashed var(--line); }
+.field:last-child { border-bottom: 0; }
+.field b { font-family: "Cascadia Mono", Consolas, monospace; font-weight: 600; font-size: 8.6pt; }
+.field span { color: var(--muted); text-align: right; }
+.dataCard { border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: var(--card); }
+.dataCard .top { padding: 6px 10px; color: #fff; font-family: "Bahnschrift", sans-serif; font-weight: 600; display: flex; flex-wrap: wrap; column-gap: 8px; justify-content: space-between; align-items: baseline; }
+.dataCard .top small { font-family: "Cascadia Mono", Consolas, monospace; font-weight: 400; opacity: 0.9; font-size: 8pt; }
+.dataCard .body { padding: 6px 10px 8px; }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; }
+.stat .n { font-family: "Bahnschrift", sans-serif; font-size: 24pt; font-weight: 600; line-height: 1; color: var(--accent); }
+.stat .l { font-size: 9pt; color: var(--muted); margin-top: 3px; }
+.chips span { display: inline-block; font-size: 8.5pt; padding: 2px 8px; margin: 2px 2px; border-radius: 999px; background: #f0ece4; }
+.chips span i { font-style: normal; color: var(--muted); font-size: 7.5pt; margin-left: 3px; }
+.step { display: grid; grid-template-columns: 26px 1fr; gap: 8px; align-items: start; margin-bottom: 7px; }
+.step .num { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff; font-family: "Bahnschrift", sans-serif; font-weight: 600; display: flex; align-items: center; justify-content: center; font-size: 10pt; }
+.step p { margin: 2px 0 0; font-size: 9.8pt; }
+.passes { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.passes figure { margin: 0; }
+.passes img { width: 100%; border-radius: 10px; border: 1px solid var(--line); display: block; }
+.passes figcaption { font-size: 8.8pt; margin-top: 4px; }
+.passes figcaption b { font-family: "Bahnschrift", sans-serif; }
+</style>
+</head>
+<body>
+
+<!-- ============================== 1. COVER ============================== -->
+<section class="page" style="background: linear-gradient(160deg, #15161b 0%, #1d1f26 55%, #2a1a14 100%); color: #ece8e1;">
+  <div style="display:grid; grid-template-columns: 1fr 64mm; gap: 12mm; height: 100%;">
+    <div style="display:flex; flex-direction:column;">
+      <div class="kicker" style="margin-top:6mm;">Architecture guide · v0.3</div>
+      <h1 style="font-size: 52pt; line-height: 1; margin-top: 6px;">hot<span style="color: var(--accent);">Muscles</span></h1>
+      <p style="font-size: 14pt; color: #b9b4ab; margin-top: 10px; max-width: 105mm;">A phone app for logging gym workouts. It shows how many sets each muscle got in the last 7 days as a colour heatmap on a body.</p>
+
+      <svg viewBox="0 0 300 26" width="105mm" style="margin: 8mm 0 4mm;">
+        <defs>
+          <linearGradient id="coverInfra" x1="0" x2="1">
+            <stop offset="0" stop-color="#000"/>
+            <stop offset="0.1667" stop-color="#6b1f9e"/>
+            <stop offset="0.3333" stop-color="#1f40ff"/>
+            <stop offset="0.5" stop-color="#00e0ff"/>
+            <stop offset="0.6667" stop-color="#26e64d"/>
+            <stop offset="0.8333" stop-color="#ffe626"/>
+            <stop offset="1" stop-color="#ff2114"/>
+          </linearGradient>
+        </defs>
+        <rect x="0" y="4" width="300" height="12" rx="6" fill="url(#coverInfra)" stroke="#3a3d45"/>
+        <text x="0" y="25" font-size="7" fill="#8d919b">0 sets</text>
+        <text x="300" y="25" font-size="7" fill="#8d919b" text-anchor="end">N sets (you pick N)</text>
+      </svg>
+
+      <div class="grid3" style="margin-top: 4mm; gap: 8px;">
+        <div class="stat" style="background:#22242b; border-color:#30333b;"><div class="n">884</div><div class="l" style="color:#a3a7b0;">exercises</div></div>
+        <div class="stat" style="background:#22242b; border-color:#30333b;"><div class="n">30</div><div class="l" style="color:#a3a7b0;">muscle regions</div></div>
+        <div class="stat" style="background:#22242b; border-color:#30333b;"><div class="n">5</div><div class="l" style="color:#a3a7b0;">screens</div></div>
+        <div class="stat" style="background:#22242b; border-color:#30333b;"><div class="n">4</div><div class="l" style="color:#a3a7b0;">bodies × views</div></div>
+        <div class="stat" style="background:#22242b; border-color:#30333b;"><div class="n">4 · 3</div><div class="l" style="color:#a3a7b0;">themes · gradients</div></div>
+        <div class="stat" style="background:#22242b; border-color:#30333b;"><div class="n">8.1k</div><div class="l" style="color:#a3a7b0;">lines of app code</div></div>
+      </div>
+
+      <div style="margin-top: auto; font-size: 9.5pt; color: #8d919b;">
+        <p style="margin:0 0 4px;"><b style="color:#ece8e1;">What's inside</b></p>
+        <p style="margin:0;">1 Data flow · 2 App structure · 3 Screens and navigation · 4 Saved data · 5 Heat calculation · 6 Body rendering · 7 Behind the scenes</p>
+        <p style="margin:8px 0 0;">Built with Godot 4.3 · one codebase → Android apk + Windows exe · fully offline</p>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; justify-content:center;">
+      <div class="phone" style="border-color:#0b0c0f;"><img src="img/screenWeek.png" alt="Week screen"></div>
+      <div class="caption" style="color:#8d919b;">The home screen: this week's heat on front + back</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== 2. BIG PICTURE ============================== -->
+<section class="page">
+  <div class="kicker">1 · Data flow</div>
+  <h2>Data flow: from source files to the app on your phone</h2>
+  <p class="lead">Data moves left to right. Body drawings and an exercise list go in on the left. Python tools on the PC turn them into data files, which are packed into the app and read when it starts. The only thing the app writes is your own workout log, saved on the phone.</p>
+
+  <svg viewBox="0 0 720 360" width="100%">
+    <defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6b6f78"/></marker>
+    </defs>
+    <!-- lanes -->
+    <rect x="0" y="0" width="168" height="360" rx="16" fill="#f3f0ea"/>
+    <rect x="184" y="0" width="168" height="360" rx="16" fill="#ece7ff"/>
+    <rect x="368" y="0" width="168" height="360" rx="16" fill="#dcf4f1"/>
+    <rect x="552" y="0" width="168" height="360" rx="16" fill="#ffe9df"/>
+    <text class="h" x="84" y="26" text-anchor="middle" font-size="13" fill="#3a3d45">Raw ingredients</text>
+    <text class="h" x="268" y="26" text-anchor="middle" font-size="13" fill="#4b2fc4">Tools (on the PC)</text>
+    <text class="h" x="452" y="26" text-anchor="middle" font-size="13" fill="#0b6f69">appData (ships)</text>
+    <text class="h" x="636" y="26" text-anchor="middle" font-size="13" fill="#b5420f">The app (phone)</text>
+    <text x="84" y="42" text-anchor="middle" font-size="9" fill="#6b6f78">downloaded, never shipped</text>
+    <text x="268" y="42" text-anchor="middle" font-size="9" fill="#6b6f78">Python + headless Godot</text>
+    <text x="452" y="42" text-anchor="middle" font-size="9" fill="#6b6f78">generated, don't hand-edit</text>
+    <text x="636" y="42" text-anchor="middle" font-size="9" fill="#6b6f78">Godot 4.3, offline</text>
+
+    <!-- ingredients -->
+    <rect x="14" y="62" width="140" height="64" rx="10" fill="#fff" stroke="#d8d3ca"/>
+    <text class="h" x="84" y="84" text-anchor="middle" font-size="11">MuscleMap drawings</text>
+    <text x="84" y="100" text-anchor="middle" font-size="8.5" fill="#6b6f78">vector body paths from an</text>
+    <text x="84" y="112" text-anchor="middle" font-size="8.5" fill="#6b6f78">open-source app (MIT)</text>
+    <rect x="14" y="150" width="140" height="64" rx="10" fill="#fff" stroke="#d8d3ca"/>
+    <text class="h" x="84" y="172" text-anchor="middle" font-size="11">free-exercise-db</text>
+    <text x="84" y="188" text-anchor="middle" font-size="8.5" fill="#6b6f78">876 exercises with coarse</text>
+    <text x="84" y="200" text-anchor="middle" font-size="8.5" fill="#6b6f78">muscle tags (public domain)</text>
+    <rect x="14" y="238" width="140" height="64" rx="10" fill="#fff" stroke="#d8d3ca"/>
+    <text class="h" x="84" y="260" text-anchor="middle" font-size="11">Curated shares</text>
+    <text x="84" y="276" text-anchor="middle" font-size="8.5" fill="#6b6f78">hand-tuned numbers for</text>
+    <text x="84" y="288" text-anchor="middle" font-size="8.5" fill="#6b6f78">88 exercises + 8 new ones</text>
+
+    <!-- tools -->
+    <rect x="198" y="62" width="140" height="64" rx="10" fill="#fff" stroke="#7a5af8"/>
+    <text class="h" x="268" y="84" text-anchor="middle" font-size="11">muscleCarve</text>
+    <text x="268" y="100" text-anchor="middle" font-size="8.5" fill="#6b6f78">cuts drawings into our</text>
+    <text x="268" y="112" text-anchor="middle" font-size="8.5" fill="#6b6f78">30 regions</text>
+    <rect x="198" y="150" width="140" height="64" rx="10" fill="#fff" stroke="#7a5af8"/>
+    <text class="h" x="268" y="172" text-anchor="middle" font-size="11">buildAppData</text>
+    <text x="268" y="188" text-anchor="middle" font-size="8.5" fill="#6b6f78">gives each exercise region</text>
+    <text x="268" y="200" text-anchor="middle" font-size="8.5" fill="#6b6f78">shares, stops on bad data</text>
+    <rect x="198" y="238" width="140" height="64" rx="10" fill="#fff" stroke="#7a5af8"/>
+    <text class="h" x="268" y="260" text-anchor="middle" font-size="11">bakeBodyMaps</text>
+    <text x="268" y="276" text-anchor="middle" font-size="8.5" fill="#6b6f78">paints each body into a</text>
+    <text x="268" y="288" text-anchor="middle" font-size="8.5" fill="#6b6f78">PNG of region ids</text>
+
+    <!-- appData -->
+    <rect x="382" y="92" width="140" height="56" rx="10" fill="#fff" stroke="#12a39a"/>
+    <text class="h" x="452" y="114" text-anchor="middle" font-size="11">exercises.json</text>
+    <text x="452" y="130" text-anchor="middle" font-size="8.5" fill="#6b6f78">884 exercises → region shares</text>
+    <rect x="382" y="166" width="140" height="56" rx="10" fill="#fff" stroke="#12a39a"/>
+    <text class="h" x="452" y="188" text-anchor="middle" font-size="11">muscles.json</text>
+    <text x="452" y="204" text-anchor="middle" font-size="8.5" fill="#6b6f78">regions, tap shapes, centres</text>
+    <rect x="382" y="240" width="140" height="56" rx="10" fill="#fff" stroke="#12a39a"/>
+    <text class="h" x="452" y="262" text-anchor="middle" font-size="11">bodyMaps/*.png</text>
+    <text x="452" y="278" text-anchor="middle" font-size="8.5" fill="#6b6f78">male/female × front/back</text>
+
+    <!-- app -->
+    <rect x="566" y="62" width="140" height="150" rx="10" fill="#fff" stroke="#ff6a2b"/>
+    <text class="h" x="636" y="84" text-anchor="middle" font-size="11">hotMuscles</text>
+    <text x="636" y="104" text-anchor="middle" font-size="8.5" fill="#6b6f78">AppData loads the files</text>
+    <text x="636" y="118" text-anchor="middle" font-size="8.5" fill="#6b6f78">once, at start-up</text>
+    <text x="636" y="140" text-anchor="middle" font-size="8.5" fill="#6b6f78">HeatEngine: sets → heat</text>
+    <text x="636" y="154" text-anchor="middle" font-size="8.5" fill="#6b6f78">BodyView: draws bodies</text>
+    <text x="636" y="168" text-anchor="middle" font-size="8.5" fill="#6b6f78">Storage: writes your saves</text>
+    <text x="636" y="190" text-anchor="middle" font-size="8.5" fill="#6b6f78">Android + Windows</text>
+    <rect x="566" y="250" width="140" height="64" rx="10" fill="#e0e9ff" stroke="#2f6dff"/>
+    <text class="h" x="636" y="272" text-anchor="middle" font-size="11" fill="#1d48b5">Your saves</text>
+    <text x="636" y="288" text-anchor="middle" font-size="8.5" fill="#3a4a75">5 small JSON files in the</text>
+    <text x="636" y="300" text-anchor="middle" font-size="8.5" fill="#3a4a75">app's private folder</text>
+
+    <!-- arrows -->
+    <path d="M154 94 H196" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+    <path d="M154 182 H196" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+    <path d="M154 270 C175 270 175 196 196 192" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+    <path d="M268 126 V148" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)" stroke-dasharray="3 3"/>
+    <path d="M268 214 V236" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)" stroke-dasharray="3 3"/>
+    <path d="M338 182 C360 182 360 120 380 120" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+    <path d="M338 270 C360 270 360 194 380 194" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+    <path d="M338 270 H380" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+    <path d="M522 120 H564" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+    <path d="M522 194 H564" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+    <path d="M522 268 C545 268 545 200 564 200" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+    <path d="M620 214 V248" stroke="#2f6dff" stroke-width="1.8" fill="none" marker-end="url(#arr)"/>
+    <path d="M652 248 V216" stroke="#2f6dff" stroke-width="1.8" fill="none" marker-end="url(#arr)"/>
+    <text x="604" y="236" text-anchor="end" font-size="8" fill="#1d48b5">writes</text>
+    <text x="668" y="236" font-size="8" fill="#1d48b5">reads</text>
+    <text x="360" y="345" text-anchor="middle" font-size="9" fill="#6b6f78">dashed arrow: muscleCarve passes its shapes to bakeBodyMaps · the app never reads the tools or the raw files</text>
+  </svg>
+
+  <div class="grid3" style="margin-top: 12px;">
+    <div class="card"><h3><span class="tag tTools">tools</span> run on the PC only</h3><p style="font-size:9.5pt;">Re-run them when a body drawing or an exercise share changes. If a share is out of range, an id is unknown, or a muscle can't be reached by any exercise, they stop and write nothing, so bad data can't reach the app.</p></div>
+    <div class="card"><h3><span class="tag tData">appData</span> generated, ships</h3><p style="font-size:9.5pt;">Finished data files. The slow work is done once on the PC, so the phone only loads files and looks values up, and the app starts fast. The body PNGs are packed in exactly as made, never re-compressed.</p></div>
+    <div class="card"><h3><span class="tag tSaves">saves</span> written by the app</h3><p style="font-size:9.5pt;">The only files the app writes. They are small, carry a version number, and survive a crash mid-save. One tap in Settings exports all of them as a backup.</p></div>
+  </div>
+
+  <h3 style="margin-top: 14px;">Project folders and what they contain</h3>
+  <table>
+    <tr><th style="width:24%;">Folder</th><th style="width:14%;">Ships?</th><th>What's in it</th></tr>
+    <tr><td><code>app/</code></td><td><span class="tag tApp">in the app</span></td><td>the app itself: <code>core/</code> data services + heat maths, <code>screens/</code> the five screens, <code>components/</code> the body view, scroller and slider, <code>ui/</code> small shared widgets, <code>main.gd</code> the root</td></tr>
+    <tr><td><code>appData/</code></td><td><span class="tag tData">in the app</span></td><td>the finished data files: <code>exercises.json</code>, <code>muscles.json</code>, <code>bodyMaps/</code> (the four body PNGs)</td></tr>
+    <tr><td><code>tools/</code></td><td><span class="tag tTools">PC only</span></td><td>muscleCarve (cuts the regions), the appData builder and body-map baker, build scripts, the icon maker</td></tr>
+    <tr><td><code>tests/</code></td><td><span class="tag tTools">PC only</span></td><td>the automatic checks and screenshot drivers</td></tr>
+    <tr><td><code>data/</code> · <code>models/</code></td><td><span class="tag tTools">PC only</span></td><td>the raw input files: carved shapes, MuscleMap source, upstream notes</td></tr>
+    <tr><td><code>docs/</code> · <code>icons/</code></td><td><span class="tag tTools">PC only</span></td><td>the app spec and this guide, launcher icon sources</td></tr>
+  </table>
+  <div class="foot"><span>hotMuscles · architecture guide</span><span>2</span></div>
+</section>
+
+<!-- ============================== 3. APP SHAPE ============================== -->
+<section class="page">
+  <div class="kicker">2 · App structure</div>
+  <h2>App structure: main parts and how they connect</h2>
+  <p class="lead">AppRoot (<code>main.gd</code>) is the top node of the app. It keeps the stack of open screens and the layer for sheets and toasts. Three services stay loaded the whole time: AppData holds the shipped files, Storage holds your saves, AppTheme holds the colours. Two helpers, HeatEngine and HeatGradients, only calculate. Screens are built from shared widgets in <code>ui/</code>.</p>
+
+  <svg viewBox="0 0 720 520" width="100%">
+    <defs>
+      <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6b6f78"/></marker>
+      <marker id="arrB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2f6dff"/></marker>
+    </defs>
+
+    <!-- AppRoot -->
+    <rect x="170" y="0" width="380" height="110" rx="16" fill="#1b1d22"/>
+    <text class="h" x="360" y="26" text-anchor="middle" font-size="15" fill="#fff">AppRoot</text>
+    <text x="360" y="42" text-anchor="middle" font-size="9" fill="#a3a7b0">main.gd · the root of the app · 433 lines</text>
+    <rect x="186" y="54" width="112" height="44" rx="8" fill="#2a2c33"/>
+    <text x="242" y="72" text-anchor="middle" font-size="9.5" fill="#ece8e1" font-weight="600">Screen stack</text>
+    <text x="242" y="87" text-anchor="middle" font-size="8" fill="#a3a7b0">push / pop, with a slide</text>
+    <rect x="304" y="54" width="112" height="44" rx="8" fill="#2a2c33"/>
+    <text x="360" y="72" text-anchor="middle" font-size="9.5" fill="#ece8e1" font-weight="600">Overlay layer</text>
+    <text x="360" y="87" text-anchor="middle" font-size="8" fill="#a3a7b0">sheets + one toast</text>
+    <rect x="422" y="54" width="112" height="44" rx="8" fill="#2a2c33"/>
+    <text x="478" y="72" text-anchor="middle" font-size="9.5" fill="#ece8e1" font-weight="600">Back + safe area</text>
+    <text x="478" y="87" text-anchor="middle" font-size="8" fill="#a3a7b0">Android back · notch</text>
+
+    <!-- services -->
+    <text class="h" x="0" y="150" font-size="11" fill="#6b6f78">ALWAYS-ON SERVICES</text>
+    <rect x="0" y="160" width="150" height="62" rx="12" fill="#dcf4f1" stroke="#12a39a"/>
+    <text class="h" x="12" y="182" font-size="12" fill="#0b6f69">AppData</text>
+    <text x="12" y="198" font-size="8.5" fill="#3a4a48">loads the shipped files:</text>
+    <text x="12" y="211" font-size="8.5" fill="#3a4a48">exercises, muscles, body maps</text>
+    <rect x="0" y="232" width="150" height="62" rx="12" fill="#e0e9ff" stroke="#2f6dff"/>
+    <text class="h" x="12" y="254" font-size="12" fill="#1d48b5">Storage</text>
+    <text x="12" y="270" font-size="8.5" fill="#3a4a75">owns your workouts, settings</text>
+    <text x="12" y="283" font-size="8.5" fill="#3a4a75">saves a file on every change</text>
+    <rect x="0" y="304" width="150" height="62" rx="12" fill="#ffe9df" stroke="#ff6a2b"/>
+    <text class="h" x="12" y="326" font-size="12" fill="#b5420f">AppTheme</text>
+    <text x="12" y="342" font-size="8.5" fill="#6b3a24">builds every colour and style</text>
+    <text x="12" y="355" font-size="8.5" fill="#6b3a24">in code, from one palette</text>
+
+    <!-- helpers -->
+    <text class="h" x="570" y="150" font-size="11" fill="#6b6f78">MATHS HELPERS</text>
+    <text x="570" y="163" font-size="8" fill="#6b6f78">hold no data, they only calculate</text>
+    <rect x="570" y="172" width="150" height="62" rx="12" fill="#fff" stroke="#d8d3ca"/>
+    <text class="h" x="582" y="194" font-size="12">HeatEngine</text>
+    <text x="582" y="210" font-size="8.5" fill="#6b6f78">sets → heat per muscle,</text>
+    <text x="582" y="223" font-size="8.5" fill="#6b6f78">week window, balance list</text>
+    <rect x="570" y="244" width="150" height="62" rx="12" fill="#fff" stroke="#d8d3ca"/>
+    <text class="h" x="582" y="266" font-size="12">HeatGradients</text>
+    <text x="582" y="282" font-size="8.5" fill="#6b6f78">Infrared · Scarlet · Ember:</text>
+    <text x="582" y="295" font-size="8.5" fill="#6b6f78">a number 0..1 → a colour</text>
+
+    <!-- screens -->
+    <text class="h" x="170" y="150" font-size="11" fill="#6b6f78">SCREENS (all share an AppScreen base)</text>
+    <g font-size="9.5">
+      <rect x="170" y="160" width="185" height="40" rx="10" fill="#fff" stroke="#ff6a2b"/>
+      <text x="182" y="177" font-weight="600">WeekScreen</text><text x="182" y="191" font-size="8" fill="#6b6f78">home · heat · balance · history</text>
+      <rect x="365" y="160" width="185" height="40" rx="10" fill="#fff" stroke="#ff6a2b"/>
+      <text x="377" y="177" font-weight="600">WorkoutScreen</text><text x="377" y="191" font-size="8" fill="#6b6f78">live workout + past-workout editor</text>
+      <rect x="170" y="208" width="185" height="40" rx="10" fill="#fff" stroke="#ff6a2b"/>
+      <text x="182" y="225" font-weight="600">PickerScreen</text><text x="182" y="239" font-size="8" fill="#6b6f78">search · filters · templates</text>
+      <rect x="365" y="208" width="185" height="40" rx="10" fill="#fff" stroke="#ff6a2b"/>
+      <text x="377" y="225" font-weight="600">SettingsScreen</text><text x="377" y="239" font-size="8" fill="#6b6f78">looks · defaults · backup</text>
+      <rect x="170" y="256" width="380" height="40" rx="10" fill="#fff" stroke="#ff6a2b"/>
+      <text x="182" y="273" font-weight="600">ProfileSetup</text><text x="182" y="287" font-size="8" fill="#6b6f78">first launch · 4 steps: name, body, gradient, theme (with a live preview)</text>
+    </g>
+
+    <!-- components -->
+    <text class="h" x="170" y="330" font-size="11" fill="#6b6f78">COMPONENTS</text>
+    <rect x="170" y="340" width="120" height="54" rx="10" fill="#fff8f4" stroke="#ffb999"/>
+    <text x="180" y="360" font-size="10" font-weight="600">BodyView</text><text x="180" y="374" font-size="8" fill="#6b6f78">draws the body:</text><text x="180" y="385" font-size="8" fill="#6b6f78">zoom, pan, tap</text>
+    <rect x="300" y="340" width="120" height="54" rx="10" fill="#fff8f4" stroke="#ffb999"/>
+    <text x="310" y="360" font-size="10" font-weight="600">KineticScroll</text><text x="310" y="374" font-size="8" fill="#6b6f78">phone-feel lists:</text><text x="310" y="385" font-size="8" fill="#6b6f78">inertia + bounce</text>
+    <rect x="430" y="340" width="120" height="54" rx="10" fill="#fff8f4" stroke="#ffb999"/>
+    <text x="440" y="360" font-size="10" font-weight="600">HeatRangeSlider</text><text x="440" y="374" font-size="8" fill="#6b6f78">the 0–N slider,</text><text x="440" y="385" font-size="8" fill="#6b6f78">doubles as legend</text>
+
+    <!-- widgets -->
+    <text class="h" x="0" y="430" font-size="11" fill="#6b6f78">SHARED WIDGET KIT (app/ui)</text>
+    <g font-size="9">
+      <rect x="0" y="440" width="66" height="26" rx="13" fill="#f0ece4"/><text x="33" y="457" text-anchor="middle">Ui</text>
+      <rect x="72" y="440" width="66" height="26" rx="13" fill="#f0ece4"/><text x="105" y="457" text-anchor="middle">TapRow</text>
+      <rect x="144" y="440" width="84" height="26" rx="13" fill="#f0ece4"/><text x="186" y="457" text-anchor="middle">BottomSheet</text>
+      <rect x="234" y="440" width="60" height="26" rx="13" fill="#f0ece4"/><text x="264" y="457" text-anchor="middle">Toast</text>
+      <rect x="300" y="440" width="72" height="26" rx="13" fill="#f0ece4"/><text x="336" y="457" text-anchor="middle">BodyCard</text>
+      <rect x="378" y="440" width="76" height="26" rx="13" fill="#f0ece4"/><text x="416" y="457" text-anchor="middle">Segmented</text>
+      <rect x="460" y="440" width="84" height="26" rx="13" fill="#f0ece4"/><text x="502" y="457" text-anchor="middle">HScrollStrip</text>
+      <rect x="550" y="440" width="74" height="26" rx="13" fill="#f0ece4"/><text x="587" y="457" text-anchor="middle">BalanceBar</text>
+      <rect x="630" y="440" width="90" height="26" rx="13" fill="#f0ece4"/><text x="675" y="457" text-anchor="middle">GradientBar</text>
+      <rect x="0" y="472" width="66" height="26" rx="13" fill="#f0ece4"/><text x="33" y="489" text-anchor="middle">AppIcon</text>
+      <text x="76" y="489" font-size="8.5" fill="#6b6f78">row with tap / long-press / swipe · slide-up sheet · Undo toast · body + Front|Back|Both chips · line icons drawn in code</text>
+    </g>
+
+    <!-- arrows -->
+    <path d="M510 110 V156" stroke="#6b6f78" stroke-width="1.6" marker-end="url(#arr2)"/>
+    <text x="502" y="132" font-size="8" fill="#6b6f78" text-anchor="end">opens screens, slides them, rebuilds on theme change</text>
+    <path d="M168 238 H152" stroke="#2f6dff" stroke-width="1.6" marker-end="url(#arrB)"/>
+    <path d="M152 288 H168" stroke="#2f6dff" stroke-width="1.6" marker-end="url(#arrB)" stroke-dasharray="4 3"/>
+    <path d="M168 186 H152" stroke="#12a39a" stroke-width="1.6" marker-end="url(#arr2)"/>
+    <path d="M552 200 H568" stroke="#6b6f78" stroke-width="1.6" marker-end="url(#arr2)"/>
+    <path d="M552 276 H568" stroke="#6b6f78" stroke-width="1.6" marker-end="url(#arr2)"/>
+    <path d="M360 298 V336" stroke="#6b6f78" stroke-width="1.6" marker-end="url(#arr2)"/>
+    <text x="170" y="314" font-size="8" fill="#1d48b5">blue solid arrow: a screen asks Storage to save · blue dashed: Storage sends a "changed" signal back</text>
+  </svg>
+
+  <div class="grid2" style="margin-top: 6px;">
+    <div class="note blue"><b>Update loop:</b> a screen asks Storage to change something. Storage writes the file and sends <code>changed("workouts")</code> (a Godot signal: a broadcast message). Every screen listening for it refreshes itself. Screens never call each other directly.</div>
+    <div class="note"><b>Theme change:</b> AppTheme rebuilds every colour and style from one palette (page, surface, text, accent, cold, hot, ghost…). Then AppRoot tells every open screen to rebuild itself with the new colours.</div>
+  </div>
+
+  <h3 style="margin-top: 10px;">Start-up sequence</h3>
+  <svg viewBox="0 0 720 120" width="100%">
+    <defs><marker id="arrS" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#6b6f78"/></marker></defs>
+    <g font-size="8.5">
+      <rect x="0" y="10" width="120" height="60" rx="10" fill="#1b1d22"/><text class="h" x="60" y="36" text-anchor="middle" font-size="11" fill="#fff">Godot boots</text><text x="60" y="52" text-anchor="middle" fill="#a3a7b0">window + scripts</text>
+      <path d="M120 40 H140" stroke="#6b6f78" stroke-width="1.5" marker-end="url(#arrS)"/>
+      <rect x="142" y="10" width="140" height="60" rx="10" fill="#dcf4f1"/><text class="h" x="212" y="30" text-anchor="middle" font-size="10.5" fill="#0b6f69">AppData loads</text><text x="212" y="46" text-anchor="middle" fill="#3a4a48">2 JSON files, read once</text><text x="212" y="59" text-anchor="middle" fill="#3a4a48">4 body maps, background threads</text>
+      <path d="M282 40 H302" stroke="#6b6f78" stroke-width="1.5" marker-end="url(#arrS)"/>
+      <rect x="304" y="10" width="120" height="60" rx="10" fill="#e0e9ff"/><text class="h" x="364" y="30" text-anchor="middle" font-size="10.5" fill="#1d48b5">Storage loads</text><text x="364" y="46" text-anchor="middle" fill="#3a4a75">reads the 5 save files,</text><text x="364" y="59" text-anchor="middle" fill="#3a4a75">fills in missing values</text>
+      <path d="M424 40 H444" stroke="#6b6f78" stroke-width="1.5" marker-end="url(#arrS)"/>
+      <rect x="446" y="10" width="110" height="60" rx="10" fill="#ffe9df"/><text class="h" x="501" y="30" text-anchor="middle" font-size="10.5" fill="#b5420f">AppTheme</text><text x="501" y="46" text-anchor="middle" fill="#6b3a24">builds your</text><text x="501" y="59" text-anchor="middle" fill="#6b3a24">theme's look</text>
+      <path d="M556 40 H576" stroke="#6b6f78" stroke-width="1.5" marker-end="url(#arrS)"/>
+      <rect x="578" y="0" width="142" height="36" rx="10" fill="#fff" stroke="#b9bcc3" stroke-dasharray="4 3"/><text x="649" y="16" text-anchor="middle" font-weight="600">not set up yet?</text><text x="649" y="29" text-anchor="middle" fill="#6b6f78">→ ProfileSetup</text>
+      <rect x="578" y="44" width="142" height="36" rx="10" fill="#ff6a2b"/><text x="649" y="60" text-anchor="middle" font-weight="600" fill="#fff">otherwise → Week</text><text x="649" y="73" text-anchor="middle" fill="#fff">+ Workout if one is running</text>
+      <text x="0" y="104" fill="#6b6f78">Limit: under 500 ms from the main scene to the first drawn frame. The build check measures it (more on page 8).</text>
+    </g>
+  </svg>
+  <div class="foot"><span>hotMuscles · architecture guide</span><span>3</span></div>
+</section>
+
+<!-- ============================== 4. SCREENS ============================== -->
+<section class="page">
+  <div class="kicker">3 · Screens and navigation</div>
+  <h2>Screens and navigation between them</h2>
+  <p class="lead">AppRoot keeps the open screens in a stack. Opening a screen slides it in on top, and Back slides the top one away. Week is always at the bottom. Bottom sheets (like the region sheet) are not screens: they slide up over the current screen from a separate overlay layer.</p>
+
+  <svg viewBox="0 0 720 300" width="100%">
+    <defs>
+      <marker id="arr3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6b6f78"/></marker>
+    </defs>
+    <!-- nodes -->
+    <rect x="0" y="120" width="120" height="60" rx="14" fill="#fff" stroke="#b9bcc3" stroke-dasharray="5 3"/>
+    <text class="h" x="60" y="146" text-anchor="middle" font-size="11.5">ProfileSetup</text>
+    <text x="60" y="162" text-anchor="middle" font-size="8" fill="#6b6f78">first launch only</text>
+
+    <rect x="190" y="110" width="150" height="80" rx="16" fill="#ff6a2b"/>
+    <text class="h" x="265" y="142" text-anchor="middle" font-size="14" fill="#fff">Week</text>
+    <text x="265" y="160" text-anchor="middle" font-size="8.5" fill="#fff">home · always at the bottom</text>
+    <text x="265" y="173" text-anchor="middle" font-size="8.5" fill="#fff">of the stack</text>
+
+    <rect x="420" y="20" width="150" height="64" rx="14" fill="#fff" stroke="#ff6a2b" stroke-width="1.5"/>
+    <text class="h" x="495" y="46" text-anchor="middle" font-size="12">Workout (live)</text>
+    <text x="495" y="62" text-anchor="middle" font-size="8" fill="#6b6f78">timer · stepper · finish</text>
+
+    <rect x="420" y="118" width="150" height="64" rx="14" fill="#fff" stroke="#ff6a2b" stroke-width="1.5"/>
+    <text class="h" x="495" y="144" text-anchor="middle" font-size="12">Workout (editor)</text>
+    <text x="495" y="160" text-anchor="middle" font-size="8" fill="#6b6f78">same screen, past workout</text>
+
+    <rect x="420" y="216" width="150" height="64" rx="14" fill="#fff" stroke="#ff6a2b" stroke-width="1.5"/>
+    <text class="h" x="495" y="242" text-anchor="middle" font-size="12">Settings</text>
+    <text x="495" y="258" text-anchor="middle" font-size="8" fill="#6b6f78">looks · defaults · backup</text>
+
+    <rect x="620" y="68" width="100" height="64" rx="14" fill="#fff" stroke="#ff6a2b" stroke-width="1.5"/>
+    <text class="h" x="670" y="94" text-anchor="middle" font-size="12">Picker</text>
+    <text x="670" y="110" text-anchor="middle" font-size="8" fill="#6b6f78">add exercises</text>
+
+    <rect x="190" y="230" width="150" height="50" rx="25" fill="#e0e9ff" stroke="#2f6dff"/>
+    <text class="h" x="265" y="252" text-anchor="middle" font-size="11" fill="#1d48b5">Region sheet</text>
+    <text x="265" y="266" text-anchor="middle" font-size="8" fill="#3a4a75">tap any muscle</text>
+
+    <!-- edges -->
+    <path d="M120 150 H186" stroke="#6b6f78" stroke-width="1.6" marker-end="url(#arr3)"/>
+    <text x="153" y="142" text-anchor="middle" font-size="8" fill="#6b6f78">finish</text>
+    <path d="M340 130 C380 110 380 60 416 54" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr3)"/>
+    <text x="372" y="84" font-size="8" fill="#6b6f78">Start</text>
+    <path d="M340 150 H416" stroke="#6b6f78" stroke-width="1.6" marker-end="url(#arr3)"/>
+    <text x="378" y="144" text-anchor="middle" font-size="8" fill="#6b6f78">tap a row</text>
+    <path d="M340 172 C380 190 380 240 416 246" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr3)"/>
+    <text x="372" y="222" font-size="8" fill="#6b6f78">gear</text>
+    <path d="M570 52 C600 52 610 80 618 88" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr3)"/>
+    <path d="M570 150 C600 150 610 124 618 116" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr3)"/>
+    <path d="M265 192 V226" stroke="#2f6dff" stroke-width="1.6" marker-end="url(#arr3)"/>
+    <path d="M340 255 C560 300 690 250 670 136" stroke="#2f6dff" stroke-width="1.4" fill="none" marker-end="url(#arr3)" stroke-dasharray="4 3"/>
+    <text x="716" y="294" font-size="8" fill="#1d48b5" text-anchor="end">"Find exercises" opens the picker filtered to that muscle</text>
+    <path d="M495 216 C460 205 140 220 60 182" stroke="#b9bcc3" stroke-width="1.3" fill="none" marker-end="url(#arr3)" stroke-dasharray="4 3"/>
+    <text x="120" y="210" font-size="8" fill="#6b6f78">"Run setup again"</text>
+  </svg>
+
+  <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 9px; margin-top: 8px;">
+    <div style="width:128px; margin:0 auto;"><div class="phone"><img src="img/screenWeek.png" alt=""></div><div class="caption">Week</div></div>
+    <div style="width:128px; margin:0 auto;"><div class="phone"><img src="img/screenWorkout.png" alt=""></div><div class="caption">Workout</div></div>
+    <div style="width:128px; margin:0 auto;"><div class="phone"><img src="img/screenPicker.png" alt=""></div><div class="caption">Picker, filtered to rear delt</div></div>
+    <div style="width:128px; margin:0 auto;"><div class="phone"><img src="img/screenRegion.png" alt=""></div><div class="caption">Region sheet</div></div>
+  </div>
+
+  <h3 style="margin-top: 10px;">Logging one workout: what you tap and what gets saved</h3>
+  <div style="display:grid; grid-template-columns: repeat(6, 1fr); gap: 6px; font-size: 8.4pt; line-height:1.35;">
+    <div class="card" style="padding:7px 8px;"><b style="color:var(--accent);">1 · Start workout</b><br>On Week. Storage creates the workout with a start time, and the Workout screen slides in.</div>
+    <div class="card" style="padding:7px 8px;"><b style="color:var(--accent);">2 · Add exercises</b><br>The picker opens. Ticked exercises show on the body as dashed outlines. Nothing is saved yet.</div>
+    <div class="card" style="padding:7px 8px;"><b style="color:var(--accent);">3 · Add</b><br>Storage saves all ticked exercises in one write. Each appears as a row with 0 sets (dashed).</div>
+    <div class="card" style="padding:7px 8px;"><b style="color:var(--accent);">4 · − / + sets</b><br>Storage saves on every tap, and the muscles light up with this workout's heat.</div>
+    <div class="card" style="padding:7px 8px;"><b style="color:var(--accent);">5 · Finish</b><br>Storage drops the 0-set rows and stamps the end time. You can save it as a template.</div>
+    <div class="card" style="padding:7px 8px;"><b style="color:var(--accent);">6 · Back on Week</b><br>The week's heat updates on the body and a toast confirms.</div>
+  </div>
+
+  <div style="display:grid; grid-template-columns: 1.15fr 1fr; gap: 8px; margin-top: 8px;">
+    <div class="card" style="padding:7px 10px;">
+      <h3 style="font-size:11pt; margin-bottom:3px;">Back button: what it does, in order</h3>
+      <div style="font-size: 8.6pt; line-height:1.35;"><b style="color:var(--accent);">1</b> A sheet is open: close it. <b style="color:var(--accent);">2</b> Ask the screen first: ProfileSetup steps back one step, the editor asks about unsaved changes. <b style="color:var(--accent);">3</b> Otherwise slide the top screen away. <b style="color:var(--accent);">4</b> Nothing left: leave the app (Escape on PC never quits).</div>
+    </div>
+    <div class="note blue" style="margin:0; font-size:8.6pt; line-height:1.35;"><b>Resume and edit:</b> if you close the app mid-workout, AppRoot opens Week and then the running workout on top. Editing a past workout changes a copy until you press Save changes.</div>
+  </div>
+  <div class="foot"><span>hotMuscles · architecture guide</span><span>4</span></div>
+</section>
+
+<!-- ============================== 5. SAVES ============================== -->
+<section class="page">
+  <div class="kicker">4 · Saved data</div>
+  <h2>Saved data: the five save files and their fields</h2>
+  <p class="lead">Each kind of data is saved in its own JSON file in the app's private folder. Storage reads all five files when the app starts and rewrites a file whenever its data changes. Every file is wrapped as <code>{"version": 1, "data": …}</code>, so a future layout change can upgrade old files.</p>
+
+  <div class="grid3">
+    <div class="dataCard"><div class="top" style="background:#2f6dff;">profile <small>profile.json</small></div><div class="body">
+      <p style="font-size:8.5pt; color:var(--muted); margin:0 0 3px;">who you are and how the app looks:</p>
+      <div class="field"><b>name</b><span>text</span></div>
+      <div class="field"><b>body</b><span>male | female</span></div>
+      <div class="field"><b>gradient</b><span>infrared | scarlet | ember</span></div>
+      <div class="field"><b>theme</b><span>ember | ocean | forest | light</span></div>
+      <div class="field"><b>setupDone</b><span>yes / no</span></div>
+    </div></div>
+    <div class="dataCard"><div class="top" style="background:#2f6dff;">settings <small>settings.json</small></div><div class="body">
+      <p style="font-size:8.5pt; color:var(--muted); margin:0 0 3px;">display and default choices:</p>
+      <div class="field"><b>hideUntouched</b><span>yes / no</span></div>
+      <div class="field"><b>newExerciseSets</b><span>0 or 1 (default 1)</span></div>
+      <div class="field"><b>defaultView</b><span>front | back | both</span></div>
+      <div class="field"><b>rangeWeek</b><span>N for the week · 12</span></div>
+      <div class="field"><b>rangeWorkout</b><span>N for a workout · 5</span></div>
+    </div></div>
+    <div class="dataCard"><div class="top" style="background:#2f6dff;">exercisePrefs <small>exercisePrefs.json</small></div><div class="body">
+      <p style="font-size:8.5pt; color:var(--muted); margin:0 0 3px;">your choices, one entry per exercise:</p>
+      <div class="field"><b>favourite</b><span>star in the picker</span></div>
+      <div class="field"><b>hidden</b><span>hide from lists</span></div>
+      <div class="field"><b>grips</b><span>remembered checkbox</span></div>
+      <div class="field"><b>lastUsed</b><span>time, for sorting</span></div>
+    </div></div>
+  </div>
+
+  <h3 style="margin-top:14px;">workouts.json: workouts contain entries</h3>
+  <p style="font-size:9.5pt; margin:0 0 6px;">A workout is a list of entries, and an entry is one exercise with its set count. <code>submitted</code> holds finished workouts, <code>current</code> holds the one in progress. templates.json reuses the same entry shape, which is why a template drops straight into a new workout.</p>
+  <svg viewBox="0 0 720 210" width="100%">
+    <rect x="0" y="0" width="720" height="210" rx="14" fill="#e0e9ff"/>
+    <text class="h" x="14" y="22" font-size="12" fill="#1d48b5">workouts.json</text>
+    <text x="120" y="22" font-size="9" fill="#3a4a75">{ submitted: [ every finished workout ], current: the running one, or null }</text>
+    <rect x="14" y="34" width="440" height="164" rx="12" fill="#fff" stroke="#2f6dff"/>
+    <text class="h" x="26" y="54" font-size="11">workout</text>
+    <text x="90" y="54" font-size="8.5" fill="#6b6f78" font-family="Consolas">id · startedAt · endedAt (0 = still running)</text>
+    <g font-size="9">
+      <rect x="26" y="66" width="416" height="36" rx="8" fill="#f4f7ff" stroke="#c7d6ff"/>
+      <text x="38" y="82" font-weight="600">entry</text><text x="80" y="82" font-family="Consolas" font-size="8.5">exerciseId "Face_Pull"</text><text x="230" y="82" font-family="Consolas" font-size="8.5">sets 3</text><text x="290" y="82" font-family="Consolas" font-size="8.5">grips false</text>
+      <text x="38" y="95" font-size="7.5" fill="#6b6f78">sets 0 = planned, shown dashed, dropped on finish</text>
+      <rect x="26" y="108" width="416" height="36" rx="8" fill="#f4f7ff" stroke="#c7d6ff"/>
+      <text x="38" y="124" font-weight="600">entry</text><text x="80" y="124" font-family="Consolas" font-size="8.5">exerciseId "Bent_Over_Barbell_Row"</text><text x="290" y="124" font-family="Consolas" font-size="8.5">sets 4</text><text x="350" y="124" font-family="Consolas" font-size="8.5">grips true</text>
+      <text x="38" y="137" font-size="7.5" fill="#6b6f78">grips ticked = straps used, so no forearm heat from this one</text>
+      <rect x="26" y="150" width="416" height="36" rx="8" fill="#f4f7ff" stroke="#c7d6ff" stroke-dasharray="4 3"/>
+      <text x="234" y="172" text-anchor="middle" fill="#6b6f78">… more entries</text>
+    </g>
+    <rect x="470" y="34" width="236" height="76" rx="12" fill="#fff" stroke="#2f6dff"/>
+    <text class="h" x="482" y="54" font-size="11">templates.json</text>
+    <text x="482" y="72" font-size="8.5" fill="#3a4a75">a list of { id, name, entries }</text>
+    <text x="482" y="86" font-size="8.5" fill="#3a4a75">same entry shape, so a template</text>
+    <text x="482" y="99" font-size="8.5" fill="#3a4a75">drops straight into a workout</text>
+    <rect x="470" y="122" width="236" height="76" rx="12" fill="#1b1d22"/>
+    <text class="h" x="482" y="142" font-size="11" fill="#fff">backup file</text>
+    <text x="482" y="160" font-size="8.5" fill="#cfd2d8">all five sections in one JSON, plus the</text>
+    <text x="482" y="174" font-size="8.5" fill="#cfd2d8">app name, backupVersion, exportedAt</text>
+    <text x="482" y="188" font-size="8.5" fill="#cfd2d8">→ saved as a file and copied to the clipboard</text>
+  </svg>
+
+  <h3 style="margin-top:12px;">Which screen writes which file</h3>
+  <table>
+    <tr><th style="width:24%;">File</th><th>Written by</th></tr>
+    <tr><td><code>profile.json</code></td><td>ProfileSetup (first launch) and Settings (name, body, gradient, theme)</td></tr>
+    <tr><td><code>settings.json</code></td><td>Settings (display and default choices) and the 0–N slider on the body card (rangeWeek, rangeWorkout)</td></tr>
+    <tr><td><code>exercisePrefs.json</code></td><td>Picker (favourite, hide) and Workout (the remembered grips tick)</td></tr>
+    <tr><td><code>workouts.json</code></td><td>Week (start a workout, delete one with Undo) and Workout (add exercises, set counts, finish, discard, edit a past workout)</td></tr>
+    <tr><td><code>templates.json</code></td><td>Week and Workout (save as template) and Picker (rename, delete)</td></tr>
+  </table>
+
+  <div class="grid2" style="margin-top: 12px;">
+    <div class="note blue" style="margin:0;"><b>Crash-safe writing:</b> Storage writes <code>workouts.json.tmp</code> first and swaps it in only once it is complete, so a power cut mid-save leaves the old file whole. A file that can't be read is renamed <code>.bad</code> and only that section starts fresh.</div>
+    <div class="note" style="margin:0;"><b>Backup import:</b> the app checks the file has every section with the right types, shows how many workouts and templates it holds, and asks you to confirm. It then saves a backup of your current data and replaces everything. It is all or nothing.</div>
+  </div>
+  <div class="foot"><span>hotMuscles · architecture guide</span><span>5</span></div>
+</section>
+
+<!-- ============================== 6. HEAT CALCULATION ============================== -->
+<section class="page">
+  <div class="kicker">5 · Heat calculation</div>
+  <h2>Heat calculation: from exercises to muscle colours</h2>
+  <p class="lead">Each exercise in <code>exercises.json</code> lists the muscle regions it works and how much of a set counts for each (its <b>shares</b>). HeatEngine multiplies your sets by the shares and adds them up over the last 7 days. The total for each region is looked up on a colour gradient.</p>
+
+  <div class="grid2" style="grid-template-columns: 1fr 1fr; align-items: start;">
+    <div class="dataCard"><div class="top" style="background:#12a39a;">exercise record <small>exercises.json</small></div><div class="body">
+      <div class="field"><b>id · name</b><span>"Ab_Roller" · Ab Roller</span></div>
+      <div class="field"><b>equipment · category</b><span>12 kinds · 7 kinds</span></div>
+      <div class="field"><b>forearmKind</b><span>none | grip | direct</span></div>
+      <div class="field"><b>curated</b><span>yes = hand-tuned shares</span></div>
+      <div style="margin-top:6px; font-size:8.5pt; color:var(--muted);">targets: one share per region (1.0 = a full set)</div>
+      <svg viewBox="0 0 320 112" width="100%">
+        <g font-size="9">
+          <text x="0" y="13">upperAbs</text><rect x="78" y="4" width="220" height="12" rx="6" fill="#f0ece4"/><rect x="78" y="4" width="220" height="12" rx="6" fill="#12a39a"/><text x="304" y="14" font-size="8.5" font-weight="600">1.0</text>
+          <text x="0" y="35">lowerAbs</text><rect x="78" y="26" width="220" height="12" rx="6" fill="#f0ece4"/><rect x="78" y="26" width="176" height="12" rx="6" fill="#12a39a"/><text x="304" y="36" font-size="8.5" font-weight="600">0.8</text>
+          <text x="0" y="57">serratus</text><rect x="78" y="48" width="220" height="12" rx="6" fill="#f0ece4"/><rect x="78" y="48" width="88" height="12" rx="6" fill="#12a39a"/><text x="304" y="58" font-size="8.5" font-weight="600">0.4</text>
+          <text x="0" y="79">lats</text><rect x="78" y="70" width="220" height="12" rx="6" fill="#f0ece4"/><rect x="78" y="70" width="66" height="12" rx="6" fill="#12a39a"/><text x="304" y="80" font-size="8.5" font-weight="600">0.3</text>
+          <text x="0" y="101">obliques</text><rect x="78" y="92" width="220" height="12" rx="6" fill="#f0ece4"/><rect x="78" y="92" width="66" height="12" rx="6" fill="#12a39a"/><text x="304" y="102" font-size="8.5" font-weight="600">0.3</text>
+                  </g>
+      </svg>
+    </div></div>
+
+    <div class="card">
+      <h3>Where the shares come from</h3>
+      <p style="font-size:9pt; margin-bottom:4px;"><b>Automatic (788 exercises):</b> the source database tags coarse muscle groups. <code>buildAppData.py</code> counts primary groups as 1.0 and secondary as 0.5, then splits each group over our finer regions (chest → lowerChest 0.7, upperChest 0.3). A region is capped at 1.0.</p>
+      <p style="font-size:9pt; margin-bottom:4px;"><b>Curated (96):</b> shares typed in by hand. <b>Stretching and cardio (137):</b> no heat.</p>
+      <p style="font-size:9pt; margin:0;"><b>Grips:</b> for 106 exercises the forearm share is skipped if you tick "grips" (straps). 28 more train the forearms directly and always count.</p>
+    </div>
+  </div>
+
+  <div style="display:grid; grid-template-columns: 1fr 38mm; gap: 12px; align-items: start; margin-top: 8px;">
+    <div>
+      <div class="card" style="background:#1b1d22; color:#ece8e1; border:0; text-align:center; padding: 12px;">
+        <div style="font-family:Bahnschrift; font-size:17pt; letter-spacing:0.02em;">heat[muscle] = Σ  sets × share</div>
+        <div style="font-size:9pt; color:#a3a7b0; margin-top:4px;">HeatEngine sums this over every entry of every workout finished in the last 7 × 24 hours</div>
+      </div>
+
+      <h3 style="margin-top:8px;">Worked example: rear delt (same numbers as the screenshot →)</h3>
+      <svg viewBox="0 0 480 170" width="100%">
+        <g font-size="9.5">
+          <text x="0" y="18">Face Pull</text><text x="150" y="18" fill="#6b6f78">3 sets × 1.0</text><rect x="240" y="7" width="90" height="14" rx="4" fill="#ff6a2b"/><text x="338" y="18" font-weight="600">3.0</text>
+          <text x="0" y="46">Bent Over Barbell Row</text><text x="150" y="46" fill="#6b6f78">4 sets × 0.5</text><rect x="240" y="35" width="60" height="14" rx="4" fill="#ff8c5a"/><text x="308" y="46" font-weight="600">2.0</text>
+          <text x="0" y="74">Pullups</text><text x="150" y="74" fill="#6b6f78">3 sets × 0.3</text><rect x="240" y="63" width="27" height="14" rx="4" fill="#ffad88"/><text x="275" y="74" font-weight="600">0.9</text>
+          <text x="0" y="102">Wide-Grip Lat Pulldown</text><text x="150" y="102" fill="#6b6f78">3 sets × 0.3</text><rect x="240" y="91" width="27" height="14" rx="4" fill="#ffc6ac"/><text x="275" y="102" font-weight="600">0.9</text>
+          <line x1="0" y1="116" x2="480" y2="116" stroke="#1b1d22" stroke-width="1.2"/>
+          <text x="0" y="137" font-weight="600">rear delt this week</text>
+          <rect x="240" y="125" width="90" height="16" fill="#ff6a2b"/><rect x="330" y="125" width="60" height="16" fill="#ff8c5a"/><rect x="390" y="125" width="27" height="16" fill="#ffad88"/><rect x="417" y="125" width="27" height="16" fill="#ffc6ac"/>
+          <text class="h" x="450" y="139" font-size="14">6.8</text>
+          <text x="0" y="162" font-size="8.5" fill="#2e9e5b">band 6–12 → status "ok"</text>
+        </g>
+      </svg>
+      <p style="font-size:9pt; margin:4px 0 0;">The face pull works the rear delt fully (1.0). The row and the lat exercises only assist it (0.5 and 0.3). Tapping a muscle opens the region sheet, which lists these same rows.</p>
+    </div>
+    <div><div class="phone"><img src="img/screenRegion.png" alt=""></div><div class="caption">Region sheet for the rear delt</div></div>
+  </div>
+
+  <div class="grid3" style="margin-top: 8px;">
+    <div class="card">
+      <h3 style="font-size:11pt;">Last 7 days, no fading</h3>
+      <svg viewBox="0 0 220 56" width="100%">
+        <rect x="80" y="10" width="134" height="30" rx="8" fill="#ffe9df" stroke="#ff6a2b"/>
+        <line x1="0" y1="25" x2="220" y2="25" stroke="#b9bcc3"/>
+        <g fill="#ff6a2b"><circle cx="105" cy="25" r="5"/><circle cx="150" cy="25" r="5"/><circle cx="195" cy="25" r="5"/></g>
+        <g fill="#b9bcc3"><circle cx="20" cy="25" r="5"/><circle cx="55" cy="25" r="5"/></g>
+        <text x="0" y="52" font-size="8.5" fill="#6b6f78">older: ignored</text>
+        <text x="214" y="52" text-anchor="end" font-size="8.5">now</text>
+      </svg>
+      <p style="font-size:8.8pt; margin:3px 0 0;">The window is the 7 days before now, not the calendar week. A workout counts fully until it is 7 days old, then drops out.</p>
+    </div>
+    <div class="card">
+      <h3 style="font-size:11pt;">Heat number to colour</h3>
+      <svg viewBox="0 0 220 56" width="100%">
+        <defs>
+          <linearGradient id="infra2" x1="0" x2="1">
+            <stop offset="0" stop-color="#000"/><stop offset="0.1667" stop-color="#6b1f9e"/><stop offset="0.3333" stop-color="#1f40ff"/><stop offset="0.5" stop-color="#00e0ff"/><stop offset="0.6667" stop-color="#26e64d"/><stop offset="0.8333" stop-color="#ffe626"/><stop offset="1" stop-color="#ff2114"/>
+          </linearGradient>
+        </defs>
+        <rect x="0" y="14" width="214" height="14" rx="7" fill="url(#infra2)"/>
+        <circle cx="121" cy="21" r="5" fill="#fff" stroke="#1b1d22"/>
+        <text x="121" y="46" text-anchor="middle" font-size="8.5">6.8 sets, N = 12</text>
+        <text x="0" y="46" font-size="8.5" fill="#6b6f78">0</text>
+        <text x="214" y="46" text-anchor="end" font-size="8.5" fill="#6b6f78">N</text>
+      </svg>
+      <p style="font-size:8.8pt; margin:3px 0 0;">HeatGradients turns t = sets ÷ N (kept between 0 and 1) into a colour. The 0–N slider sets N; anything above N shows the top colour.</p>
+    </div>
+    <div class="card">
+      <h3 style="font-size:11pt;">Status vs target band</h3>
+      <div style="margin-bottom:3px;"><span class="tag" style="background:#c8cbd2;">missed</span><span class="tag" style="background:#9fb8ff;">under</span><span class="tag" style="background:#9fdcb5;">ok</span><span class="tag" style="background:#ffb3a8;">over</span></div>
+      <p style="font-size:8.8pt; margin:3px 0 0;">Each region has a weekly band in sets: 6–12 for most, 10–20 for lats, glutes and hamstrings, 3–8 for small helpers. Under 0.5 sets is "missed". The balance list on Week puts the furthest from the band first.</p>
+    </div>
+  </div>
+
+  <p style="font-size:8.6pt; color:var(--muted); margin:6px 0 0;"><b>30 regions in 7 groups:</b> Back 6 · Shoulders 4 · Chest 3 · Arms 3 · Core 4 · Legs 9 · Neck 1. In the picker, tapping a muscle ranks exercises by share + 0.5 × focus (the part of the exercise that goes to that muscle). Favourites and exercises you have used before rank a little higher.</p>
+  <div class="foot"><span>hotMuscles · architecture guide</span><span>6</span></div>
+</section>
+
+<!-- ============================== 7. RENDERING ============================== -->
+<section class="page">
+  <div class="kicker">6 · Body rendering</div>
+  <h2>Body rendering: region map texture, palette and shader</h2>
+  <p class="lead">Each body is drawn as one textured rectangle. The texture is not a picture. It is a region map: each colour channel stores a different number per pixel (like an ID pass in compositing). The shader <code>bodyMap.gdshader</code> reads those numbers and colours the body on every frame.</p>
+
+  <div class="passes">
+    <figure><img src="img/mapRed.png" alt=""><figcaption><b style="color:#d03a2a;">R · which region</b><br>the id of the muscle at this pixel: 0 outside the body, 1 seam between regions, 2 head, hands and feet, 3 and up one of the 30 regions. Shown here with a random colour per id.</figcaption></figure>
+    <figure><img src="img/mapGreen.png" alt=""><figcaption><b style="color:#2e9e5b;">G · position along the outline</b><br>A number that runs along each muscle's edge. The shader uses it to draw the dashed "ghost" outline that marks exercises you planned but have not done yet.</figcaption></figure>
+    <figure><img src="img/mapBlue.png" alt=""><figcaption><b style="color:#2f6dff;">B · distance to the edge</b><br>How far the pixel is from the nearest edge. The shader uses it to keep muscle edges sharp at any zoom level.</figcaption></figure>
+  </div>
+
+  <svg viewBox="0 0 720 226" width="100%" style="margin-top: 12px;">
+    <defs><marker id="arr6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#6b6f78"/></marker></defs>
+    <!-- heat -->
+    <rect x="0" y="20" width="130" height="70" rx="12" fill="#fff" stroke="#d8d3ca"/>
+    <text class="h" x="65" y="44" text-anchor="middle" font-size="11">heat per region</text>
+    <text x="65" y="60" text-anchor="middle" font-size="8.5" fill="#6b6f78">HeatEngine output:</text>
+    <text x="65" y="74" text-anchor="middle" font-size="8.5" fill="#6b6f78">one number per region</text>
+    <path d="M130 55 H168" stroke="#6b6f78" stroke-width="1.6" marker-end="url(#arr6)"/>
+    <!-- palette -->
+    <rect x="170" y="0" width="240" height="110" rx="12" fill="#fff" stroke="#ff6a2b"/>
+    <text class="h" x="182" y="20" font-size="11">palette texture · 64 × 2</text>
+    <g>
+      <rect x="182" y="30" width="8" height="18" fill="#0b0c0f"/><rect x="190" y="30" width="8" height="18" fill="#0b0c0f"/><rect x="198" y="30" width="8" height="18" fill="#2a2c33"/>
+      <rect x="206" y="30" width="8" height="18" fill="#1f40ff"/><rect x="214" y="30" width="8" height="18" fill="#00e0ff"/><rect x="222" y="30" width="8" height="18" fill="#26e64d"/><rect x="230" y="30" width="8" height="18" fill="#6b1f9e"/><rect x="238" y="30" width="8" height="18" fill="#ffe626"/><rect x="246" y="30" width="8" height="18" fill="#ff2114"/><rect x="254" y="30" width="8" height="18" fill="#1f40ff"/><rect x="262" y="30" width="8" height="18" fill="#3a3d45"/><rect x="270" y="30" width="8" height="18" fill="#26e64d"/><rect x="278" y="30" width="8" height="18" fill="#00e0ff"/><rect x="286" y="30" width="8" height="18" fill="#ff2114"/><rect x="294" y="30" width="8" height="18" fill="#6b1f9e"/><rect x="302" y="30" width="8" height="18" fill="#ffe626"/><rect x="310" y="30" width="8" height="18" fill="#3a3d45"/><rect x="318" y="30" width="8" height="18" fill="#1f40ff"/><rect x="326" y="30" width="8" height="18" fill="#26e64d"/><rect x="334" y="30" width="8" height="18" fill="#00e0ff"/><rect x="342" y="30" width="8" height="18" fill="#ff2114"/><rect x="350" y="30" width="8" height="18" fill="#3a3d45"/><rect x="358" y="30" width="8" height="18" fill="#6b1f9e"/><rect x="366" y="30" width="8" height="18" fill="#26e64d"/><rect x="374" y="30" width="8" height="18" fill="#1f40ff"/><rect x="382" y="30" width="8" height="18" fill="#ffe626"/><rect x="390" y="30" width="8" height="18" fill="#3a3d45"/>
+      <rect x="182" y="50" width="216" height="18" fill="#1b1d22"/>
+      <rect x="230" y="50" width="8" height="18" fill="#ff3b3b"/><rect x="246" y="50" width="8" height="18" fill="#ff3b3b"/><rect x="286" y="50" width="8" height="18" fill="#3bff6b"/>
+    </g>
+    <text x="182" y="84" font-size="8.5" fill="#3a3d45">row 0: the colour of each region id</text>
+    <text x="182" y="98" font-size="8.5" fill="#3a3d45">row 1: ghost strength (red) · selected region (green)</text>
+    <path d="M410 55 H448" stroke="#6b6f78" stroke-width="1.6" marker-end="url(#arr6)"/>
+    <!-- shader -->
+    <rect x="450" y="0" width="270" height="110" rx="12" fill="#1b1d22"/>
+    <text class="h" x="462" y="20" font-size="11" fill="#fff">bodyMap.gdshader</text>
+    <text x="462" y="40" font-size="8.5" fill="#cfd2d8">reads the region id from R, looks up its colour</text>
+    <text x="462" y="56" font-size="8.5" fill="#cfd2d8">zoomed in: sharp edges, using B</text>
+    <text x="462" y="72" font-size="8.5" fill="#cfd2d8">zoomed out: averages nearby pixels</text>
+    <text x="462" y="88" font-size="8.5" fill="#cfd2d8">draws the dashed ghost outline from G</text>
+    <text x="462" y="102" font-size="8.5" fill="#cfd2d8">and a white line round the selected region</text>
+    <!-- bottom row -->
+    <rect x="0" y="130" width="350" height="92" rx="12" fill="#ffe9df"/>
+    <text class="h" x="12" y="150" font-size="11" fill="#b5420f">Colour update when the heat changes</text>
+    <text x="12" y="168" font-size="8.5" fill="#6b3a24">BodyView works out the 30 new colours, writes them into the</text>
+    <text x="12" y="182" font-size="8.5" fill="#6b3a24">palette texture, and fades from the old colours to the new ones.</text>
+    <text x="12" y="196" font-size="8.5" fill="#6b3a24">Only the small palette changes. The big body texture is never</text>
+    <text x="12" y="210" font-size="8.5" fill="#6b3a24">touched, so an update is cheap.</text>
+    <rect x="370" y="130" width="350" height="92" rx="12" fill="#e0e9ff"/>
+    <text class="h" x="382" y="150" font-size="11" fill="#1d48b5">Tap detection</text>
+    <text x="382" y="168" font-size="8.5" fill="#3a4a75">A tap does not read the texture. BodyView tests it against the</text>
+    <text x="382" y="182" font-size="8.5" fill="#3a4a75">tap shapes stored in muscles.json (up to 32 corners each): box</text>
+    <text x="382" y="196" font-size="8.5" fill="#3a4a75">check, then point-in-polygon, top piece wins. A tap on a seam</text>
+    <text x="382" y="210" font-size="8.5" fill="#3a4a75">samples points around it. Pinch or wheel zooms 1-6x.</text>
+  </svg>
+  <h3 style="margin-top: 12px;">From a logged workout to colours on the Week screen</h3>
+  <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 8px; font-size: 9pt; line-height:1.4;">
+    <div class="card"><b style="color:var(--accent);">1 · Save</b><br>Storage writes workouts.json and sends the <code>changed("workouts")</code> signal.</div>
+    <div class="card"><b style="color:var(--accent);">2 · Count</b><br>WeekScreen hears it and asks HeatEngine for the week's heat: one number per region.</div>
+    <div class="card"><b style="color:var(--accent);">3 · Colour</b><br>BodyView turns each number into a colour with HeatGradients and writes it into the palette texture.</div>
+    <div class="card"><b style="color:var(--accent);">4 · Draw</b><br>bodyMap.gdshader looks up every pixel's region id in the palette, so the GPU recolours the body.</div>
+  </div>
+  <div class="note" style="margin-top: 12px;"><b>Why it works this way:</b> an earlier version drew tens of thousands of outline points per body on every frame. Now the GPU gets one rectangle and two small textures, and the phone builds no geometry at all. If a body map file is missing, the app shows an error instead of quietly drawing something else.</div>
+  <div class="foot"><span>hotMuscles · architecture guide</span><span>7</span></div>
+</section>
+
+<!-- ============================== 8. BEHIND THE SCENES ============================== -->
+<section class="page">
+  <div class="kicker">7 · Behind the scenes</div>
+  <h2>Behind the scenes: building the data and keeping it fast</h2>
+  <p class="lead">Two jobs happen out of sight. Scripts on the PC build the data files once, so the phone has almost nothing to compute at start-up. And every build is checked against two time limits, so the app stays quick to open and smooth to use.</p>
+
+  <svg viewBox="0 0 720 280" width="100%">
+    <defs><marker id="arr7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#6b6f78"/></marker></defs>
+    <text class="h" x="0" y="14" font-size="11" fill="#4b2fc4">BODY SHAPES</text>
+    <!-- row 1 -->
+    <rect x="0" y="24" width="124" height="66" rx="10" fill="#fff" stroke="#d8d3ca"/><text class="h" x="62" y="46" text-anchor="middle" font-size="10.5">MuscleMap</text><text x="62" y="62" text-anchor="middle" font-size="8" fill="#6b6f78">open-source Swift app</text><text x="62" y="74" text-anchor="middle" font-size="8" fill="#6b6f78">with vector body paths</text>
+    <path d="M124 57 H146" stroke="#6b6f78" stroke-width="1.5" marker-end="url(#arr7)"/>
+    <rect x="148" y="24" width="122" height="66" rx="10" fill="#ece7ff"/><text class="h" x="209" y="46" text-anchor="middle" font-size="10" font-family="Consolas">extractShapes.py</text><text x="209" y="62" text-anchor="middle" font-size="8" fill="#4b2fc4">reads the Swift source</text><text x="209" y="74" text-anchor="middle" font-size="8" fill="#4b2fc4">writes sourceShapes.json</text>
+    <path d="M270 57 H292" stroke="#6b6f78" stroke-width="1.5" marker-end="url(#arr7)"/>
+    <rect x="294" y="24" width="170" height="66" rx="10" fill="#ece7ff"/><text class="h" x="379" y="44" text-anchor="middle" font-size="10" font-family="Consolas">carve.py + polygonCut.gd</text><text x="379" y="60" text-anchor="middle" font-size="8" fill="#4b2fc4">cuts the upstream muscles into</text><text x="379" y="72" text-anchor="middle" font-size="8" fill="#4b2fc4">our 30 regions (e.g. chest into</text><text x="379" y="84" text-anchor="middle" font-size="8" fill="#4b2fc4">upper + lower) → muscleShapes.json</text>
+    <path d="M464 57 H486" stroke="#6b6f78" stroke-width="1.5" marker-end="url(#arr7)"/>
+
+    <!-- builder -->
+    <rect x="488" y="24" width="122" height="170" rx="10" fill="#ece7ff" stroke="#7a5af8"/>
+    <text class="h" x="549" y="46" text-anchor="middle" font-size="10" font-family="Consolas">buildAppData.py</text>
+    <text x="549" y="66" text-anchor="middle" font-size="8" fill="#4b2fc4">reads muscleShapes.json,</text>
+    <text x="549" y="78" text-anchor="middle" font-size="8" fill="#4b2fc4">calls bakeBodyMaps.py to</text>
+    <text x="549" y="90" text-anchor="middle" font-size="8" fill="#4b2fc4">paint each body as a PNG</text>
+    <text x="549" y="102" text-anchor="middle" font-size="8" fill="#4b2fc4">of region ids</text>
+    <text x="549" y="130" text-anchor="middle" font-size="8" fill="#4b2fc4">for exercises: turns coarse</text>
+    <text x="549" y="142" text-anchor="middle" font-size="8" fill="#4b2fc4">muscle groups into region</text>
+    <text x="549" y="154" text-anchor="middle" font-size="8" fill="#4b2fc4">shares with a split table</text>
+    <text x="549" y="176" text-anchor="middle" font-size="8" fill="#4b2fc4">one command rebuilds all</text>
+
+    <!-- outputs -->
+    <path d="M610 48 H632" stroke="#6b6f78" stroke-width="1.5" marker-end="url(#arr7)"/>
+    <path d="M610 82 H632" stroke="#6b6f78" stroke-width="1.5" marker-end="url(#arr7)"/>
+    <rect x="634" y="28" width="86" height="40" rx="10" fill="#dcf4f1" stroke="#12a39a"/><text x="677" y="45" text-anchor="middle" font-size="9" font-family="Consolas">bodyMaps/</text><text x="677" y="59" text-anchor="middle" font-size="8" fill="#0b6f69">4 PNG maps</text>
+    <rect x="634" y="72" width="86" height="40" rx="10" fill="#dcf4f1" stroke="#12a39a"/><text x="677" y="89" text-anchor="middle" font-size="9" font-family="Consolas">muscles.json</text><text x="677" y="103" text-anchor="middle" font-size="8" fill="#0b6f69">tap shapes, bands</text>
+
+    <!-- exercises -->
+    <text class="h" x="0" y="124" font-size="11" fill="#4b2fc4">EXERCISES</text>
+    <rect x="0" y="134" width="170" height="52" rx="10" fill="#fff" stroke="#d8d3ca"/><text class="h" x="85" y="154" text-anchor="middle" font-size="10.5">free-exercise-db</text><text x="85" y="168" text-anchor="middle" font-size="8" fill="#6b6f78">876 exercises, 17 coarse</text><text x="85" y="179" text-anchor="middle" font-size="8" fill="#6b6f78">muscle groups</text>
+    <rect x="0" y="192" width="170" height="52" rx="10" fill="#fff" stroke="#d8d3ca"/><text class="h" x="85" y="212" text-anchor="middle" font-size="10.5">curatedExercises.json</text><text x="85" y="226" text-anchor="middle" font-size="8" fill="#6b6f78">88 hand-tuned overrides</text><text x="85" y="237" text-anchor="middle" font-size="8" fill="#6b6f78">+ 8 new exercises</text>
+    <path d="M170 160 C300 160 400 160 486 160" stroke="#6b6f78" stroke-width="1.5" fill="none" marker-end="url(#arr7)"/>
+    <path d="M170 218 C300 218 400 190 486 180" stroke="#6b6f78" stroke-width="1.5" fill="none" marker-end="url(#arr7)"/>
+    <path d="M610 150 H632" stroke="#6b6f78" stroke-width="1.5" marker-end="url(#arr7)"/>
+    <rect x="634" y="130" width="86" height="40" rx="10" fill="#dcf4f1" stroke="#12a39a"/><text x="677" y="147" text-anchor="middle" font-size="9" font-family="Consolas">exercises.json</text><text x="677" y="161" text-anchor="middle" font-size="8" fill="#0b6f69">884 exercises</text>
+
+    <rect x="200" y="226" width="520" height="48" rx="10" fill="#ffe2df"/>
+    <text class="h" x="212" y="245" font-size="10" fill="#b52a1f">buildAppData.py stops and writes nothing when…</text>
+    <text x="212" y="262" font-size="8.5" fill="#6b2a24">an exercise or region id is unknown · a share is outside 0–1 · any muscle can't be reached by some exercise</text>
+  </svg>
+
+  <div class="grid2" style="margin-top: 12px;">
+    <div class="stat"><div class="n">&lt; 500 ms</div><div class="l">from the main scene to the first drawn frame (first launch on a fresh PC: under 2 s, while the graphics driver prepares shaders once)</div></div>
+    <div class="stat"><div class="n">&lt; 40 ms</div><div class="l">for the slowest single frame during any everyday step (tap, scroll, open a screen). The aim is 33 ms (30 fps); v0.3 measured 27–32 ms at worst</div></div>
+  </div>
+
+  <div class="card" style="margin-top: 10px;">
+    <h3>How the app meets those limits</h3>
+    <div class="step"><div class="num">✓</div><p><b>Long lists fill in over several frames.</b> Opening the picker builds the first 6 rows, then 3 more each frame, up to 40. Building all 40 at once took about 90 ms, a visible stutter. The rows off screen finish while the screen is still sliding in. The balance list on Week does the same: 4 rows, then 3 per frame.</p></div>
+    <div class="step"><div class="num">✓</div><p><b>Update rows, don't rebuild them.</b> Existing rows are changed or moved in place instead of being deleted and made again.</p></div>
+    <div class="step"><div class="num">✓</div><p><b>One write for many values.</b> Each file write costs about 4 ms, so "Add 3 exercises" and finishing setup each save everything in a single write.</p></div>
+    <div class="step"><div class="num">✓</div><p><b>Body maps load in the background.</b> AppData decodes the four PNGs on worker threads at launch, so the main thread stays free to draw the first frame.</p></div>
+    <div class="step"><div class="num">✓</div><p><b>Idle bodies sleep.</b> BodyView stops updating every frame when nothing on the body is animating.</p></div>
+  </div>
+
+  <div class="grid2" style="margin-top: 10px;">
+    <div class="note blue" style="margin:0;"><b>Automatic checks</b> cover the heat maths, saving and backups, each screen's flows with real numbers, a synthetic finger (tap, drag, swipe, sheets, back), list scrolling, start-up time, and the worst frame of every everyday step. The build check also opens each finished exe three times on a throwaway save folder.</div>
+    <div class="card"><h3>Rebuild and ship rules</h3><p class="mono" style="margin:0;">python tools/appData/buildAppData.py</p><p style="font-size:9pt; color:var(--muted); margin:4px 0 0;">Rebuilds every file in appData/. The folders data/, models/, tools/, tests/, docs/ and icons/ never go into a build, and the build check refuses a build that contains any of them.</p></div>
+  </div>
+  <div class="foot"><span>hotMuscles · architecture guide</span><span>8</span></div>
+</section>
+
+
+</body>
+</html>

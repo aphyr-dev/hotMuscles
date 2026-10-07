@@ -1,0 +1,7 @@
+# godot cache and build outputs
+.godot/
+builds/
+*.tmp
+
+# third-party clone with its own history - its version is noted in data/sources.md
+data/freeExerciseDb/
