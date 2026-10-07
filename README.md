@@ -29,7 +29,7 @@ Everything stays on your device. The app works offline and never sends anything 
 
 ## How it's built
 
-A tour of the app's insides: [docs/hotMusclesArchitecture_v2.pdf](docs/hotMusclesArchitecture_v2.pdf)
+A tour of the app's insides, with the file and function behind each part: [docs/hotMusclesArchitecture_v3.pdf](docs/hotMusclesArchitecture_v3.pdf)
 
 ## Licence: MIT
 
