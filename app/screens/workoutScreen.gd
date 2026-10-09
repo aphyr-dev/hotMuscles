@@ -11,8 +11,11 @@ extends AppScreen
 ## - live: requestFinish() -> confirm sheet -> optional save-as-template sheet -> the week, animated;
 ##   discard from the confirm sheet (undo on the toast)
 ## - editor: saveChanges(); back with unsaved changes asks first
+## - the exercise list shows the newest exercise on top (the saved order stays oldest first)
 ## - the body card shows only this workout's heat (amount colouring, its own 0-N); 0-set entries
 ##   are "planned": a ghost outline on the body and a dashed-look row
+## - its "+ Week" chip (setShowWeek(on), remembered in the workoutShowWeek setting) adds the last 7 days
+##   of finished workouts to the body, on the week's own 0-N - the same numbers as the week screen
 ## - grips checkbox only on exercises with forearmKind "grip" (ticked = no forearm heat)
 
 ### /// TUNING ///
@@ -31,6 +34,11 @@ const plannedFillAlpha: float = 0.45
 const plannedGhostSets: int = 1
 # most sets the stepper allows
 const maxSets: int = 99
+# body card title and hint, with and without the week added
+const titleWorkout: String = "This workout"
+const titleWithWeek: String = "Workout + week"
+const hintWorkout: String = "Dashed outline = planned (0 sets) · tap a muscle to find exercises"
+const hintWithWeek: String = "Last 7 days + this workout · tap a muscle to find exercises"
 
 ### /// STATE ///
 
@@ -42,6 +50,7 @@ var finished: bool = false
 var scroll: KineticScroll = null
 var column: VBoxContainer = null
 var bodyCard: BodyCard = null
+var weekChip: Button = null
 var summaryLabel: Label = null
 var rowsBox: VBoxContainer = null
 var emptyLabel: Label = null
@@ -107,8 +116,11 @@ func _build() -> void:
 	# body card - only this workout
 	bodyCard = BodyCard.new()
 	column.add_child(bodyCard)
-	bodyCard.configure("This workout", bodyMaxHeight, "rangeWorkout", true, "Dashed outline = planned (0 sets) · tap a muscle to find exercises")
+	bodyCard.configure(titleWorkout, bodyMaxHeight, "rangeWorkout", true, hintWorkout)
 	bodyCard.regionTapped.connect(_onRegionTapped)
+	weekChip = bodyCard.addFooterChip("+ Week")
+	weekChip.toggled.connect(setShowWeek)
+	_applyShowWeek()
 
 	# list
 	var heading: HBoxContainer = Ui.hbox(8)
@@ -155,7 +167,7 @@ func _onStorageChanged(section: String) -> void:
 		return
 	if section == "settings":
 		bodyCard.setHideUntouched(bool(Storage.settings["hideUntouched"]))
-		bodyCard.setRange(int(Storage.settings["rangeWorkout"]))
+		bodyCard.setRange(int(Storage.settings[bodyCard.rangeKey]))
 		return
 	if section == "profile":
 		bodyCard.setBody(str(Storage.profile["body"]))
@@ -261,6 +273,45 @@ func _markDirty() -> void:
 		mainButton.disabled = false
 
 
+func showsWeek() -> bool:
+	return bool(Storage.settings["workoutShowWeek"])
+
+
+func setShowWeek(on: bool) -> void:
+	# the "+ Week" chip: the body adds (or drops) the last 7 days, blending to the new heat
+	if on != showsWeek():
+		Storage.setSetting("workoutShowWeek", on)
+	_applyShowWeek()
+	refreshRows(true)
+
+
+func _applyShowWeek() -> void:
+	# chip, title, hint and which remembered 0-N the slider shows
+	var on: bool = showsWeek()
+	weekChip.set_pressed_no_signal(on)
+	if on:
+		bodyCard.setTitle(titleWithWeek)
+		bodyCard.setHint(hintWithWeek)
+		bodyCard.setRangeKey("rangeWeek")
+	else:
+		bodyCard.setTitle(titleWorkout)
+		bodyCard.setHint(hintWorkout)
+		bodyCard.setRangeKey("rangeWorkout")
+
+
+func _weekHeatBesides() -> Dictionary:
+	### WHAT THIS DOES
+	# the last 7 days of finished workouts, leaving out the one being edited (its edited copy is
+	# what this screen adds on top)
+
+	var others: Array = []
+
+	for workout in Storage.submittedWorkouts():
+		if str(workout["id"]) != editId:
+			others.append(workout)
+	return HeatEngine.weekHeat(others, AppData.exerciseById, Time.get_unix_time_from_system())
+
+
 func openPicker() -> PickerScreen:
 	return app.openPicker(self, "")
 
@@ -286,7 +337,12 @@ func refreshRows(animate: bool) -> void:
 		if int(entry["sets"]) == 0:
 			planned.append({"exerciseId": entry["exerciseId"], "sets": plannedGhostSets, "grips": entry["grips"]})
 
-	bodyCard.setHeat(HeatEngine.effectiveSets(list, AppData.exerciseById), animate)
+	var heat: Dictionary = HeatEngine.effectiveSets(list, AppData.exerciseById)
+	if showsWeek():
+		var week: Dictionary = _weekHeatBesides()
+		for regionId in week:
+			heat[regionId] = float(heat.get(regionId, 0.0)) + float(week[regionId])
+	bodyCard.setHeat(heat, animate)
 	bodyCard.setGhost(HeatEngine.effectiveSets(planned, AppData.exerciseById))
 	var exerciseWord: String = "exercises"
 	if list.size() == 1:
@@ -294,6 +350,7 @@ func refreshRows(animate: bool) -> void:
 	summaryLabel.text = "%d %s · %d sets" % [list.size(), exerciseWord, loggedSets]
 	emptyLabel.visible = list.is_empty()
 
+	# newest exercise on top - rowParts follows the saved order, the rows on screen run backwards;
 	# exercises only added at the end: the rows already there stay, only the new ones are made
 	if ids != shownIds:
 		var keepCount: int = shownIds.size()
@@ -305,6 +362,7 @@ func refreshRows(animate: bool) -> void:
 		for index in range(keepCount, list.size()):
 			var parts: Dictionary = _makeRow(index, list[index])
 			rowsBox.add_child(parts["row"])
+			rowsBox.move_child(parts["row"], 0)
 			rowParts.append(parts)
 	for index in range(rowParts.size()):
 		_updateRow(rowParts[index], list[index])

@@ -92,9 +92,16 @@ Big, friendly, few steps, a live preview of the body in the chosen gradient and 
   contributed how much, and a "Find exercises" button that opens the exercise picker filtered to that
   muscle.
 - Big "Start workout" button (reads "Resume workout - mm:ss" while one is running).
+- **Week replay on start** (owner, 2026-10-09): opening the app (no workout running) empties the body,
+  then replays the week workout by workout (oldest first), muscle by muscle from the top of the body
+  down; each muscle flashes as its heat lands and each workout pulses as a whole at its end. The card
+  title names the workout ("Wed 7 Oct · 2/3"). Fits in ~4.5 s; a tap on the body skips it.
 
 ### Workout mode
 - Timer, back to the week, the body card showing ONLY this workout's heat (its own 0-N).
+- A **"+ Week" chip** on the body card (owner, 2026-10-07) adds the last 7 days of finished workouts
+  to the body, on the week's own 0-N; remembered between workouts.
+- The exercise list shows the **newest exercise on top** (owner, 2026-10-07); older ones move down.
 - Exercise list: each row has a sets stepper (- n +), remove, and a **grips** checkbox on exercises
   with `forearmKind == grip` (ticked = this entry gives no forearm heat; remembered per exercise for
   next time, and stored in templates).
@@ -106,6 +113,9 @@ Big, friendly, few steps, a live preview of the body in the chosen gradient and 
 
 ### Exercise picker (from a workout, or from "Find exercises")
 - Search box, equipment filter chips, a "show hidden" chip.
+- **"Filter by unused" chip** (owner, 2026-10-09): exercises for the muscles still at 0 sets (last 7
+  days + this workout) go first, the most share on them first; nothing is dropped. It and a tapped
+  muscle both set the order, so turning one on clears the other.
 - **Favourites** (star) always listed first; **hidden** exercises never listed (unless "show hidden"),
   but still work in templates and old workouts. Star / hide via long-press or swipe on a row.
 - **Multi-select**: tick several, one "Add N exercises" button.

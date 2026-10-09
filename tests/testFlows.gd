@@ -288,6 +288,19 @@ func _checkWorkoutFlow() -> void:
 
 func _checkTemplateApplyAndDiscard() -> void:
 	var week: Node = app.weekScreen()
+
+	# the start-up replay: empties the body, fills it back, lands on the real week; a body tap skips it
+	week.startReplay()
+	_expectTrue("replay runs", week.replaying())
+	_expectTrue("replay starts from an empty body", week.bodyCard.bodyView.heatShown().is_empty())
+	await _wait(week.replayMaxSeconds + 0.5)
+	_expectTrue("replay ends by itself", not week.replaying())
+	_expectNear("replay lands on the week", float(week.bodyCard.bodyView.heatShown().get("lowerChest", 0.0)), float(week.weekHeat.get("lowerChest", 0.0)))
+	_expectEqual("replay gives the title back", week.bodyCard.titleLabel.text, week.cardTitle)
+	week.startReplay()
+	week._onBodyEmptyTapped()
+	_expectTrue("a tap on the body skips the replay", not week.replaying())
+
 	var workout: Node = week.startWorkout()
 	await _wait(settleSeconds)
 	var picker: Node = workout.openPicker()
@@ -302,6 +315,28 @@ func _checkTemplateApplyAndDiscard() -> void:
 	_expectEqual("template entries applied", entries.size(), 2)
 	_expectEqual("with their sets", entries[0]["sets"], 4)
 	_expectEqual("and grips", entries[1]["grips"], true)
+	_expectTrue("newest exercise is the top row", workout.rowsBox.get_child(0) == workout.rowParts[1]["row"])
+
+	# "+ Week" adds the finished workout (bench x4) to this one's bench x4, on the week's 0-N
+	workout.setShowWeek(true)
+	_expectNear("+ Week: chest = both workouts", float(workout.bodyCard.bodyView.toHeat.get("lowerChest", 0.0)), 8.0 * _share(bench, "lowerChest"))
+	_expectEqual("+ Week: slider on the week's 0-N", workout.bodyCard.rangeKey, "rangeWeek")
+	_expectTrue("+ Week remembered", bool(storage.settings["workoutShowWeek"]))
+	workout.setShowWeek(false)
+	_expectNear("week off: only this workout", float(workout.bodyCard.bodyView.toHeat.get("lowerChest", 0.0)), 4.0 * _share(bench, "lowerChest"))
+
+	# "Filter by unused": exercises for muscles at 0 sets first, nothing dropped; a tapped muscle clears it
+	var unusedPicker: Node = workout.openPicker()
+	await _wait(settleSeconds)
+	var allCount: int = unusedPicker.results.size()
+	unusedPicker.setUnusedFirst(true)
+	_expectEqual("unused: nothing dropped", unusedPicker.results.size(), allCount)
+	_expectTrue("unused: top row hits unused muscles", unusedPicker.unusedShares.has(unusedPicker.results[0]["id"]))
+	_expectTrue("unused: bench is not on top", unusedPicker.results[0]["id"] != bench)
+	unusedPicker.setRegionFilter("lats")
+	_expectTrue("a tapped muscle turns unused off", not unusedPicker.unusedFirst and not unusedPicker.unusedChip.button_pressed)
+	app.goBack()
+	await _wait(settleSeconds)
 
 	# discard + undo, then discard for real
 	workout.discard()

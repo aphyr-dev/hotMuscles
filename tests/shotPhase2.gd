@@ -121,6 +121,10 @@ func _themePass(themeId: String, body: String, everything: bool) -> void:
 	await _openApp()
 	var week: Node = app.weekScreen()
 	await _wait(blendSeconds)
+	await _grab("week_replay")
+	while week.replaying():
+		await _wait(0.1)
+	await _wait(blendSeconds)
 	await _grab("week_both")
 	if everything:
 		week.bodyCard.setView("front")
@@ -161,6 +165,10 @@ func _themePass(themeId: String, body: String, everything: bool) -> void:
 	await _wait(0.3)
 	await _grab("workout_rows")
 	workout.scroll.scrollTo(0.0)
+	workout.setShowWeek(true)
+	await _wait(blendSeconds)
+	await _grab("workout_week")
+	workout.setShowWeek(false)
 
 	# picker: search + equipment + ticks with the ghost
 	var picker: Node = workout.openPicker()
@@ -179,6 +187,9 @@ func _themePass(themeId: String, body: String, everything: bool) -> void:
 		picker.setRegionFilter("rearDelt")
 		await _wait(0.4)
 		await _grab("picker_muscle")
+		picker.setUnusedFirst(true)
+		await _wait(0.4)
+		await _grab("picker_unused")
 		picker.openExerciseMenu("Face_Pull")
 		await _wait(settleSeconds)
 		await _grab("picker_menu")

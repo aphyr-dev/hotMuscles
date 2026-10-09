@@ -44,6 +44,7 @@ func _run() -> void:
 	_checkStatuses()
 	_checkContributions()
 	_checkRecommend()
+	_checkUnused()
 	_checkSearch()
 
 	if failures == 0:
@@ -218,6 +219,25 @@ func _checkRecommend() -> void:
 	_expectEqual("showHidden brings it back", shown.size(), hidden.size() + 1)
 	var tibialis: Array = engine.recommend("tibialis", data.exercises)
 	_expectEqual("tibialis: the added raise", tibialis[0]["exercise"]["id"], "Tibialis_Raise")
+
+
+func _checkUnused() -> void:
+	# the picker's "filter by unused": bench worked chest / front delt / triceps / serratus, so pull-ups
+	# (lats, biceps, back) and hammer curls (forearms, biceps) are the ones for unused muscles
+	var heat: Dictionary = engine.effectiveSets([_entry(bench, 3, false)], data.exerciseById)
+	var unused: Dictionary = engine.unusedRegions(heat, Array(data.regionIds))
+	_expectEqual("bench leaves 25 muscles unused", unused.size(), 25)
+	_expectTrue("lower chest not unused", not unused.has("lowerChest"))
+	var list: Array = [data.getExercise(bench), data.getExercise(hammer), data.getExercise(pullups)]
+	var ordered: Array = engine.unusedFirst(list, unused)
+	_expectEqual("nothing dropped", ordered.size(), 3)
+	_expectEqual("pull-ups first (most share on unused)", ordered[0]["exercise"]["id"], pullups)
+	_expectNear("pull-ups share on unused", float(ordered[0]["share"]), 3.2)
+	_expectEqual("hammer curls second", ordered[1]["exercise"]["id"], hammer)
+	_expectEqual("bench last, nothing on unused", ordered[2]["exercise"]["id"], bench)
+	_expectNear("bench share on unused", float(ordered[2]["share"]), 0.0)
+	var none: Array = engine.unusedFirst([data.getExercise(bench), data.getExercise(hammer)], {})
+	_expectEqual("no unused muscles: order kept", none[0]["exercise"]["id"], bench)
 
 
 func _checkSearch() -> void:

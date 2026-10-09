@@ -13,6 +13,10 @@ extends RefCounted
 ## - rankRegions(heat, regions)                       regions sorted by how far off target
 ## - contributions(regionId, entries, exerciseById)   which exercises gave a region how much
 ## - recommend(regionId, exercises, options)          exercise picker order for "tap a muscle"
+## - unusedRegions(heat, regionIds)                   regionId -> true for every muscle at 0 sets
+## - unusedFirst(exercises, unused)                   picker order for "filter by unused": the most
+##                                                    share on unused muscles first, the rest after in
+##                                                    their old order; [{exercise, share}]
 
 ### /// TUNING ///
 
@@ -30,6 +34,8 @@ const recommendFavouriteBonus: float = 0.15
 const recommendUsedBonus: float = 0.05
 # recommendation score: bonus for curated (hand-checked) data
 const recommendCuratedBonus: float = 0.03
+# effective sets below this count as "unused" (0% worked) for the picker's filter by unused
+const unusedBelow: float = 0.01
 
 const statusMissed: String = "missed"
 const statusUnder: String = "under"
@@ -278,3 +284,41 @@ static func _recommendBefore(a: Dictionary, b: Dictionary) -> bool:
 	if absf(a["score"] - b["score"]) > 0.00001:
 		return a["score"] > b["score"]
 	return a["exercise"]["name"] < b["exercise"]["name"]
+
+
+### /// UNUSED MUSCLES ///
+
+static func unusedRegions(heat: Dictionary, regionIds: Array) -> Dictionary:
+	# every muscle the heat leaves at 0
+	var unused: Dictionary = {}
+	for regionId in regionIds:
+		if float(heat.get(regionId, 0.0)) < unusedBelow:
+			unused[regionId] = true
+	return unused
+
+
+static func unusedFirst(exercises: Array, unused: Dictionary) -> Array:
+	### WHAT THIS DOES
+	# reorders a list (nothing is dropped): exercises with more share on unused muscles first; equal
+	# ones, and every exercise that misses them all, keep the order they came in. Shares go into
+	# buckets of 0.01 sets and only the bucket keys are sorted (a custom sort of ~880 rows cost a
+	# whole frame)
+
+	var buckets: Dictionary = {}
+	var keys: PackedInt32Array = PackedInt32Array()
+	var rows: Array = []
+
+	for exercise in exercises:
+		var share: float = 0.0
+		for target in exercise.get("targets", []):
+			if unused.has(target["region"]):
+				share += float(target["share"])
+		var key: int = roundi(share * 100.0)
+		if not buckets.has(key):
+			buckets[key] = []
+			keys.append(key)
+		buckets[key].append({"exercise": exercise, "share": share})
+	keys.sort()
+	for index in range(keys.size() - 1, -1, -1):
+		rows.append_array(buckets[keys[index]])
+	return rows

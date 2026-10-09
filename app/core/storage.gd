@@ -4,7 +4,8 @@ extends Node
 ## sections (read them, change them only through the functions below so they save):
 ## - profile       {name, body "male"/"female", gradient, theme, setupDone}
 ## - settings      {hideUntouched, newExerciseSets 0/1,
-##                  defaultView "front"/"back"/"both", rangeWeek, rangeWorkout}
+##                  defaultView "front"/"back"/"both", rangeWeek, rangeWorkout,
+##                  workoutShowWeek (the workout body adds the last 7 days)}
 ## - workouts      {submitted: [workout], current: workout or null}
 ##                  workout = {id, startedAt, endedAt, entries: [{exerciseId, sets, grips}]} (unix seconds)
 ## - templates     [{id, name, entries: [{exerciseId, sets, grips}]}]
@@ -69,6 +70,7 @@ func defaultSettings() -> Dictionary:
 		"defaultView": "both",
 		"rangeWeek": 12,
 		"rangeWorkout": 5,
+		"workoutShowWeek": false,
 	}
 
 
@@ -221,6 +223,7 @@ func _cleanSettings() -> void:
 	settings["rangeWeek"] = clampi(int(settings["rangeWeek"]), rangeMinValue, rangeMaxValue)
 	settings["rangeWorkout"] = clampi(int(settings["rangeWorkout"]), rangeMinValue, rangeMaxValue)
 	settings["hideUntouched"] = bool(settings["hideUntouched"])
+	settings["workoutShowWeek"] = bool(settings["workoutShowWeek"])
 
 
 func _cleanWorkout(workout: Dictionary) -> Dictionary:

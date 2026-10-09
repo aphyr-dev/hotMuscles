@@ -11,6 +11,8 @@ extends Control
 ##   setHeat(regionId -> effective sets, animate = true)   colours blend smoothly to the new values
 ##   setGhost(regionId -> sets)                             pulsing dashed outline + translucent fill
 ##                                                          (a preview, clearly not real heat); {} clears
+##   flashRegion(regionId, strength = 1.0)                  the region lights up towards white and fades
+##                                                          back over flashSeconds (the week replay)
 ##   resetZoom(animate = true), zoomAt(localPoint, factor), regionAt(localPoint) -> regionId or ""
 ##   regionCentre(regionId) -> local point well inside the region's biggest piece (Vector2.INF if not shown)
 ##   heatShown() -> the values currently drawn (mid-animation too)
@@ -63,6 +65,10 @@ var doubleTapSeconds: float = 0.3
 var doubleTapDistancePx: float = 40.0
 # a tap landing in a seam still counts for a region within this many px
 var hitTolerancePx: float = 9.0
+# flash (flashRegion): seconds it takes to fade, the colour it lights towards and how far at full strength
+var flashSeconds: float = 0.5
+var flashColour: Color = Color(1.0, 0.97, 0.9)
+var flashMix: float = 0.75
 # palette width (map ids 0..paletteSize-1)
 const paletteSize: int = 64
 
@@ -89,6 +95,7 @@ var toHeat: Dictionary = {}
 var blendProgress: float = 1.0
 var ghostHeat: Dictionary = {}
 var ghostClock: float = 0.0
+var flashLevels: Dictionary = {}
 var regionColours: Dictionary = {}
 var mapMaterial: ShaderMaterial = null
 var paletteImage: Image = null
@@ -220,6 +227,13 @@ func setGhost(ghost: Dictionary) -> void:
 	_writePalette()
 
 
+func flashRegion(regionId: String, strength: float = 1.0) -> void:
+	# lights the region up at once; _process fades it back
+	flashLevels[regionId] = maxf(float(flashLevels.get(regionId, 0.0)), clampf(strength, 0.0, 1.0))
+	set_process(true)
+	_writePalette()
+
+
 func _blendHeat() -> void:
 	# shownHeat = smooth mix of fromHeat and toHeat at blendProgress
 	var eased: float = smoothstep(0.0, 1.0, blendProgress)
@@ -279,7 +293,11 @@ func _writePalette() -> void:
 	paletteImage.set_pixel(appData.mapCosmeticId, 0, cosmeticColour)
 	for regionId in appData.regionIds:
 		var mapId: int = appData.mapIdOf(regionId)
-		paletteImage.set_pixel(mapId, 0, regionColours.get(regionId, plain))
+		var colourHere: Color = regionColours.get(regionId, plain)
+		if flashLevels.has(regionId):
+			var fade: float = float(flashLevels[regionId])
+			colourHere = colourHere.lerp(flashColour, flashMix * fade * fade)
+		paletteImage.set_pixel(mapId, 0, colourHere)
 		var flags: Color = Color(0.0, 0.0, 0.0, 1.0)
 		if ghostHeat.has(regionId):
 			flags.r = 0.35 + 0.65 * clampf(float(ghostHeat[regionId]) / rangeMax, 0.0, 1.0)
@@ -419,15 +437,25 @@ func _draw() -> void:
 
 func _process(delta: float) -> void:
 	### WHAT THIS DOES
-	# heat blend, zoom reset animation, ghost pulse, delayed single tap - sleeps when idle
+	# heat blend, flashes fading, zoom reset animation, ghost pulse, delayed single tap - sleeps when idle
 
 	var busy: bool = false
 
+	if flashLevels.size() > 0:
+		for regionId in flashLevels.keys():
+			var level: float = float(flashLevels[regionId]) - delta / maxf(flashSeconds, 0.05)
+			if level <= 0.0:
+				flashLevels.erase(regionId)
+			else:
+				flashLevels[regionId] = level
+		busy = true
 	if blendProgress < 1.0:
 		blendProgress = minf(blendProgress + delta / transitionSeconds, 1.0)
 		_blendHeat()
 		_updateColours()
 		busy = true
+	elif busy:
+		_writePalette()
 	if zoomProgress < 1.0:
 		zoomProgress = minf(zoomProgress + delta / resetSeconds, 1.0)
 		var eased: float = smoothstep(0.0, 1.0, zoomProgress)

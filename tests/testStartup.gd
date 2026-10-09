@@ -10,7 +10,7 @@ extends SceneTree
 ##   rebuilt on a folder with four workouts (week screen, body in "both", workout thumbnails); data
 ##   load -> first drawn frame must stay under appShareLimitMs
 ## part 3 - normal use: setup choices, finishing setup, body views, region sheet, starting a workout,
-##   the picker (open, muscle filter, search, star, ghost), finishing; in each step the longest gap
+##   the picker (open, muscle filter, search, star, ghost, filter by unused), finishing; in each step the longest gap
 ##   between two drawn frames must stay under worstFrameLimitMs
 ## the window must be on screen (parked is fine, never minimised); prints every number, PASS/FAIL lines
 ## and ALL PASS / N FAILURE(S); runs on a throwaway save folder deleted at the end
@@ -175,6 +175,8 @@ func _normalUse() -> void:
 	await _timed("picker: clear search", func() -> void: picker.setSearch(""))
 	await _timed("picker: star a row", func() -> void: picker.setFavourite(str(picker.results[1]["id"]), true))
 	await _timed("picker: clear muscle filter", func() -> void: picker.clearRegionFilter())
+	await _timed("picker: filter by unused", func() -> void: picker.setUnusedFirst(true))
+	await _timed("picker: unused off", func() -> void: picker.setUnusedFirst(false))
 	await _timed("picker: templates tab", func() -> void: picker.showTab("templates"))
 	await _timed("picker: back", func() -> void: app.goBack())
 	await _timed("workout: finish confirm", func() -> void: workout.requestFinish())

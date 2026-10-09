@@ -9,6 +9,8 @@ extends VBoxContainer
 ## - bodyView (the BodyView), slider (HeatRangeSlider or null), viewChips (Segmented)
 ## - setHeat(heat, animate), setGhost(ghost), setGradient(id), setBody(body),
 ##   setView(view), setHideUntouched(hide), setHint(text), setTitle(text)
+## - addFooterChip(text) -> a toggle chip under the slider, the hint line beside it
+## - setRangeKey(key)   the slider now shows and writes a different Storage setting
 ## - the body is edge to edge in the card; its height fits the figures to the card width
 ##   (so "both" fills the width) and never passes maxBodyHeight
 ## signals: regionTapped(regionId), emptyTapped(), viewChanged(view)
@@ -135,6 +137,33 @@ func setView(view: String) -> void:
 
 func setHideUntouched(hide: bool) -> void:
 	bodyView.hideUntouched = hide
+
+
+func addFooterChip(text: String) -> Button:
+	### WHAT THIS DOES
+	# a toggle chip at the left of the hint line (the title row has no room left on a phone); the
+	# caller listens to its toggled signal
+
+	var row: HBoxContainer = Ui.hbox(10)
+	var chip: Button = Ui.button(text, "ChipButton")
+
+	bottomBox.add_child(row)
+	bottomBox.move_child(row, hintLabel.get_index())
+	chip.toggle_mode = true
+	chip.custom_minimum_size.y = Segmented.chipHeight
+	chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(chip)
+	hintLabel.reparent(row)
+	hintLabel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hintLabel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hintLabel.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	return chip
+
+
+func setRangeKey(storageRangeKey: String) -> void:
+	# the slider follows another remembered N (e.g. the workout card showing the whole week)
+	rangeKey = storageRangeKey
+	setRange(int(Storage.settings[rangeKey]))
 
 
 func setRange(rangeMax: int) -> void:

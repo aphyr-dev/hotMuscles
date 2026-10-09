@@ -11,12 +11,19 @@ extends AppScreen
 ## - startWorkout(): starts one (or resumes the running one) and opens it; the button reads
 ##   "Resume workout · mm:ss" while one runs
 ## - showFinished(workout): back from a finished workout - the heat blends slowly to the new week
+## - startReplay() (the app calls it on start): the body empties, then the week fills back in workout
+##   by workout, oldest first, muscle by muscle from the top of the body down - each muscle flashes
+##   as its heat lands, each finished workout pulses as a whole. A tap on the body, leaving the page or
+##   any saved change ends it on the real week at once. replaying() says whether it runs
 ## - refresh(animate); weekHeat (regionId -> effective sets) and weekWorkouts hold what is shown
 
 ### /// TUNING ///
 
 # tallest the body gets on the week card
 const bodyMaxHeight: float = 470.0
+# body card title and hint (the replay shows its own while it runs)
+const cardTitle: String = "Sets this week"
+const cardHint: String = "Tap a muscle for details · pinch to zoom"
 # seconds the heat takes to blend after finishing a workout (normal changes use BodyView's own)
 const finishBlendSeconds: float = 1.8
 # tiny body thumbnail on a workout row
@@ -27,6 +34,18 @@ const mainButtonHeight: float = 58.0
 # then rows made per frame after that until all 30 are there - all at once cost a ~50 ms frame
 const firstBalanceRows: int = 4
 const balanceRowsPerFrame: int = 3
+# week replay on start: wait before the first muscle (the page settles), seconds per muscle at most and
+# at least, pause after each workout, and the longest the whole replay may take (muscles speed up to fit)
+const replayStartDelay: float = 0.45
+const replayMuscleSecondsMax: float = 0.1
+const replayMuscleSecondsMin: float = 0.03
+const replayWorkoutPause: float = 0.35
+const replayMaxSeconds: float = 4.5
+# seconds a muscle's heat takes to blend in during the replay, flash strength per muscle, and of the
+# whole-workout pulse at the end of each workout
+const replayBlendSeconds: float = 0.25
+const replayMuscleFlash: float = 1.0
+const replayWorkoutFlash: float = 0.45
 
 ### /// STATE ///
 
@@ -53,6 +72,9 @@ var dirty: bool = true
 var normalBlendSeconds: float = 0.9
 var lastClockText: String = ""
 var appliedDefaultView: String = ""
+var replaySteps: Array = []
+var replayClock: float = 0.0
+var replayHeat: Dictionary = {}
 
 
 func _ready() -> void:
@@ -100,8 +122,9 @@ func _build() -> void:
 	# body card
 	bodyCard = BodyCard.new()
 	column.add_child(bodyCard)
-	bodyCard.configure("Sets this week", bodyMaxHeight, "rangeWeek", true, "Tap a muscle for details · pinch to zoom")
-	bodyCard.regionTapped.connect(openRegion)
+	bodyCard.configure(cardTitle, bodyMaxHeight, "rangeWeek", true, cardHint)
+	bodyCard.regionTapped.connect(_onBodyRegionTapped)
+	bodyCard.emptyTapped.connect(_onBodyEmptyTapped)
 	normalBlendSeconds = bodyCard.bodyView.transitionSeconds
 
 	# tabs
@@ -175,6 +198,8 @@ func refresh(animate: bool) -> void:
 	var now: float = _now()
 	var submitted: Array = Storage.submittedWorkouts()
 
+	if replaying():
+		_endReplay()
 	dirty = false
 	weekWorkouts = HeatEngine.workoutsInWindow(submitted, now)
 	weekHeat = HeatEngine.weekHeat(submitted, AppData.exerciseById, now)
@@ -564,7 +589,9 @@ func _updateStartButton() -> void:
 		startButton.text = text
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	if replaying():
+		_stepReplay(delta)
 	if balancePending:
 		_placeBalanceRows(balanceRowsPerFrame)
 	if is_visible_in_tree() and Storage.hasCurrentWorkout():
@@ -588,3 +615,102 @@ func _restoreBlend() -> void:
 
 func _onSettingsPressed() -> void:
 	app.openSettings()
+
+
+func _onBodyRegionTapped(regionId: String) -> void:
+	# during the replay a tap only skips it
+	if replaying():
+		_endReplay()
+		return
+	openRegion(regionId)
+
+
+func _onBodyEmptyTapped() -> void:
+	if replaying():
+		_endReplay()
+
+
+### /// WEEK REPLAY ///
+
+func replaying() -> bool:
+	return replaySteps.size() > 0
+
+
+func startReplay() -> void:
+	### WHAT THIS DOES
+	# empties the body and lays out every step of the replay on a clock: one step per muscle of each
+	# workout (oldest workout first, muscles in body order), a pulse step closing each workout
+
+	var oldestFirst: Array = weekWorkouts.duplicate()
+	var muscleCount: int = 0
+	var perWorkout: Array = []
+
+	if oldestFirst.is_empty():
+		return
+	oldestFirst.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["startedAt"]) < float(b["startedAt"]))
+
+	# each workout's muscles, top of the body down (AppData.regions is in body order)
+	for workout in oldestFirst:
+		var heat: Dictionary = HeatEngine.effectiveSets(workout["entries"], AppData.exerciseById)
+		var muscles: Array = []
+		for region in AppData.regions:
+			var amount: float = float(heat.get(region["id"], 0.0))
+			if amount > 0.0:
+				muscles.append({"region": region["id"], "amount": amount})
+		muscleCount += muscles.size()
+		perWorkout.append({"workout": workout, "muscles": muscles})
+	if muscleCount == 0:
+		return
+
+	# time per muscle: as slow as allowed while the whole replay fits in replayMaxSeconds
+	var pauses: float = replayStartDelay + replayWorkoutPause * perWorkout.size()
+	var muscleSeconds: float = clampf((replayMaxSeconds - pauses) / muscleCount, replayMuscleSecondsMin, replayMuscleSecondsMax)
+	var at: float = replayStartDelay
+	replaySteps = []
+	for index in range(perWorkout.size()):
+		var started: float = float(perWorkout[index]["workout"]["startedAt"])
+		var caption: String = "%s · %d/%d" % [Ui.dayLabel(started), index + 1, perWorkout.size()]
+		var regionIds: Array = []
+		for muscle in perWorkout[index]["muscles"]:
+			replaySteps.append({"at": at, "kind": "muscle", "region": muscle["region"], "amount": muscle["amount"], "caption": caption})
+			regionIds.append(muscle["region"])
+			at += muscleSeconds
+		replaySteps.append({"at": at, "kind": "pulse", "regions": regionIds})
+		at += replayWorkoutPause
+
+	# start from an empty body
+	replayClock = 0.0
+	replayHeat = {}
+	bodyCard.bodyView.transitionSeconds = replayBlendSeconds
+	bodyCard.setHeat({}, false)
+	bodyCard.setTitle("Your week")
+	bodyCard.setHint("Tap the body to skip")
+
+
+func _stepReplay(delta: float) -> void:
+	# fires every step whose time has come; the last one ends the replay
+	replayClock += delta
+	while replaySteps.size() > 0 and float(replaySteps[0]["at"]) <= replayClock:
+		var step: Dictionary = replaySteps.pop_front()
+		if step["kind"] == "muscle":
+			var regionId: String = step["region"]
+			replayHeat[regionId] = float(replayHeat.get(regionId, 0.0)) + float(step["amount"])
+			bodyCard.setHeat(replayHeat, true)
+			bodyCard.bodyView.flashRegion(regionId, replayMuscleFlash)
+			bodyCard.setTitle(step["caption"])
+		else:
+			for regionId in step["regions"]:
+				bodyCard.bodyView.flashRegion(regionId, replayWorkoutFlash)
+	if replaySteps.is_empty():
+		_endReplay()
+	elif not is_visible_in_tree():
+		_endReplay()
+
+
+func _endReplay() -> void:
+	# straight to the real week (a skip lands softly; after the last step it is already there)
+	replaySteps = []
+	bodyCard.setTitle(cardTitle)
+	bodyCard.setHint(cardHint)
+	bodyCard.setHeat(weekHeat, true)
+	get_tree().create_timer(replayBlendSeconds + 0.1).timeout.connect(_restoreBlend)

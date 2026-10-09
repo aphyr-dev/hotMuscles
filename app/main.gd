@@ -15,7 +15,8 @@ extends Control
 ##   screen, else pops a screen; false = nothing left to close (Android then leaves the app)
 ## - setSafeInsets(top, bottom)   design px kept clear at the top and bottom (read from the phone)
 ## - startUp()   (re)opens the first screens from what is saved: profile setup on first launch,
-##   else the week, plus the running workout on top if there is one
+##   else the week, plus the running workout on top if there is one (without one, the week replays
+##   its workouts on the body - WeekScreen.startReplay)
 ## - prints once (stdout + the log): "first frame drawn <a> ms after launch: scripts loaded in <b> ms,
 ##   main scene -> first frame <c> ms"; a = the whole launch (Godot opening its window included),
 ##   b = from the app's first code (AppData.appStartMs) until this scene enters the tree - the engine
@@ -114,9 +115,12 @@ func startUp() -> void:
 	if not bool(Storage.profile["setupDone"]):
 		push(ProfileSetup.create(true), false)
 		return
-	push(WeekScreen.new(), false)
+	var week := WeekScreen.new()
+	push(week, false)
 	if Storage.hasCurrentWorkout():
 		push(WorkoutScreen.createLive(), false)
+	else:
+		week.startReplay()
 
 
 ### /// SAFE AREA ///
