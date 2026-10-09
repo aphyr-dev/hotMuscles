@@ -5,7 +5,7 @@ what this offers
   for each file:
     - lists the app's own files inside it (the pack embedded in the exe, the assets/ folder of the apk)
     - FAILS if anything from a folder that must never ship is there (tests, tools, docs, data, models,
-      renders, mockups, icons, builds) or if appData/exercises.json / appData/muscles.json is missing
+      renders, mockups, icons, builds) or if appData/exercises.json / muscles.json / targets.json is missing
     - FAILS unless every body map (appData/bodyMaps/*.png) ships byte for byte the same as the project's
       file - the maps hold region ids per texel, so any re-compression would break taps and colours -
       and if any imported texture copy of a body map ships
@@ -45,7 +45,7 @@ from pathlib import Path
 # top folders that must never be inside a build
 forbiddenFolders = ["tests", "tools", "docs", "data", "models", "renders", "mockups", "icons", "builds"]
 # files that must be inside every build
-requiredFiles = ["appData/exercises.json", "appData/muscles.json"]
+requiredFiles = ["appData/exercises.json", "appData/muscles.json", "appData/targets.json"]
 # folder of files that must ship byte for byte identical to the project's copy (every png in it)
 identicalFolder = "appData/bodyMaps"
 # the name the phone shows under the icon, and the package id (unchanged since v001, so a new apk

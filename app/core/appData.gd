@@ -4,8 +4,13 @@ extends Node
 ## - regions: [{id, name, group, views, band: [low, high]}] in body order; regionById; regionIds
 ## - groups: [{id, name}]
 ## - exercises: [{id, name, equipment, category, targets: [{region, share}], forearmKind, curated,
-##   aliases (optional: other names search matches, e.g. "pec deck")}]
-##   sorted by name; exerciseById
+##   aliases (optional: other names search matches, e.g. "pec deck"), cardioEffort + cardioNote (cardio
+##   exercises: the effort a session defaults to)}] sorted by name; exerciseById
+## - presets: [{id, name, kind "sport"/"physique", summary, offsets {regionId: sets}, cardio {lightId:
+##   minutes a week}, keyExercises [exerciseId]}]; presetById; presetBaseline (the baseline they were
+##   researched at)
+## - cardioEfforts [{id, label, hint, zone}] + effortById; cardioLights [{id, name, colour "red"/"blue",
+##   zones {z1, z2, z3: 0..1}, explain}]; cardioDefaultTarget {lightId: minutes a week}
 ## - getRegion(id) / regionName(id) / regionBand(id) / getExercise(id) / exerciseShare(exerciseId, regionId)
 ## - search(query, equipmentFilter = [], limit = 0)   name + alias search, every word must match
 ## - equipmentList()                                   every equipment name, sorted
@@ -54,6 +59,13 @@ var mapDashShare: float = 0.6
 var mapEdgeSteps: float = 64.0
 var searchNames: Dictionary = {}
 var searchOrder: Array = []
+var presets: Array = []
+var presetById: Dictionary = {}
+var presetBaseline: int = 12
+var cardioEfforts: Array = []
+var effortById: Dictionary = {}
+var cardioLights: Array = []
+var cardioDefaultTarget: Dictionary = {}
 var appStartMs: int = 0
 
 
@@ -70,12 +82,13 @@ func _enter_tree() -> void:
 
 func loadAll(folder: String) -> bool:
 	### WHAT THIS DOES
-	# reads muscles.json + exercises.json; any missing or broken file is a loud error
+	# reads muscles.json + exercises.json + targets.json; any missing or broken file is a loud error
 
 	var muscles: Variant = _readJson(folder.path_join("muscles.json"))
 	var exerciseFile: Variant = _readJson(folder.path_join("exercises.json"))
+	var targetFile: Variant = _readJson(folder.path_join("targets.json"))
 
-	if typeof(muscles) != TYPE_DICTIONARY or typeof(exerciseFile) != TYPE_DICTIONARY:
+	if typeof(muscles) != TYPE_DICTIONARY or typeof(exerciseFile) != TYPE_DICTIONARY or typeof(targetFile) != TYPE_DICTIONARY:
 		push_error("AppData: could not load app data from %s - rebuild it with tools/appData/buildAppData.py" % folder)
 		loaded = false
 		return false
@@ -112,6 +125,19 @@ func loadAll(folder: String) -> bool:
 			searchText += "|" + _normaliseName(str(alias))
 		searchNames[exercise["id"]] = searchText
 	_sortSearchOrder()
+
+	# target presets and the cardio model
+	presets = targetFile["presets"]
+	presetBaseline = int(targetFile["baseline"])
+	presetById.clear()
+	for preset in presets:
+		presetById[preset["id"]] = preset
+	cardioEfforts = targetFile["cardio"]["efforts"]
+	cardioLights = targetFile["cardio"]["lights"]
+	cardioDefaultTarget = targetFile["cardio"]["defaultTarget"]
+	effortById.clear()
+	for effort in cardioEfforts:
+		effortById[effort["id"]] = effort
 
 	viewCache.clear()
 	loaded = true
