@@ -17,6 +17,9 @@ const bodyMaxHeight: float = 300.0
 # key exercises named on a researched preset's row
 const keyNamesShown: int = 4
 const sectionTitles: Dictionary = {"sport": "Sports", "physique": "Physique", "custom": "Yours"}
+# rows made in the frame the screen opens, then per frame after that (all at once cost a ~50 ms frame)
+const firstRows: int = 4
+const rowsPerFrame: int = 3
 
 ### /// STATE ///
 
@@ -25,6 +28,8 @@ var column: VBoxContainer = null
 var bodyCard: BodyCard = null
 var listBox: VBoxContainer = null
 var rows: Dictionary = {}
+var rowsKey: String = ""
+var rowPlan: Array = []
 
 
 func _ready() -> void:
@@ -51,6 +56,8 @@ func _build() -> void:
 
 
 func rebuild() -> void:
+	# a new theme: rows carry theme colours, so they are all made again
+	rowsKey = ""
 	refresh()
 
 
@@ -68,7 +75,22 @@ func _onStorageChanged(section: String) -> void:
 
 func refresh() -> void:
 	### WHAT THIS DOES
-	# the preview body and its line, then every preset row by section
+	# the preview body and its line; the rows are only made again when the presets themselves changed
+	# (a toggle just moves the ticks)
+
+	_refreshPreview()
+	var key: String = JSON.stringify(Targets.allPresets())
+	if key == rowsKey:
+		for presetId in rows:
+			_showActive(rows[presetId], Targets.isActive(presetId))
+		return
+	rowsKey = key
+	_planRows()
+	_placeRows(firstRows)
+
+
+func _refreshPreview() -> void:
+	# the combined targets on the body, hottest = the biggest
 
 	var targets: Dictionary = Targets.regionTargets()
 	var biggest: float = 1.0
@@ -88,20 +110,43 @@ func refresh() -> void:
 		bodyCard.setTitle(", ".join(names))
 		bodyCard.setHint("Hottest = biggest target (%s sets a week) · cardio %d easy + %d hard min a week" % [Ui.formatSets(biggest), int(cardio.get("easyCardio", 0)), int(cardio.get("hardCardio", 0))])
 
+
+func _planRows() -> void:
+	# what the list holds, in order: a title per section, its rows (or a line saying it is empty)
 	Ui.clearChildren(listBox)
 	rows = {}
+	rowPlan = []
 	for kind in ["sport", "physique", "custom"]:
 		var presets: Array = []
 		for preset in Targets.allPresets():
 			if preset["kind"] == kind:
 				presets.append(preset)
-		listBox.add_child(Ui.label(sectionTitles[kind], "TitleLabel"))
+		rowPlan.append({"title": sectionTitles[kind]})
 		if presets.is_empty():
-			listBox.add_child(Ui.wrapLabel("None yet. Make one with + New target, or hold a preset above to copy it.", "FaintLabel"))
+			rowPlan.append({"empty": true})
 		for preset in presets:
-			var row: TapRow = _presetRow(preset)
+			rowPlan.append({"preset": preset})
+
+
+func _placeRows(limit: int) -> void:
+	# makes the next planned rows, at most `limit` preset rows (titles are cheap and come free)
+	var made: int = 0
+	while rowPlan.size() > 0 and made < limit:
+		var item: Dictionary = rowPlan.pop_front()
+		if item.has("title"):
+			listBox.add_child(Ui.label(item["title"], "TitleLabel"))
+		elif item.has("empty"):
+			listBox.add_child(Ui.wrapLabel("None yet. Make one with + New target, or hold a preset above to copy it.", "FaintLabel"))
+		else:
+			var row: TapRow = _presetRow(item["preset"])
 			listBox.add_child(row)
-			rows[preset["id"]] = row
+			rows[item["preset"]["id"]] = row
+			made += 1
+
+
+func _process(_delta: float) -> void:
+	if rowPlan.size() > 0:
+		_placeRows(rowsPerFrame)
 
 
 func _presetRow(preset: Dictionary) -> TapRow:
@@ -118,12 +163,8 @@ func _presetRow(preset: Dictionary) -> TapRow:
 	tick.iconSize = 26.0
 	tick.custom_minimum_size = Vector2(26.0, 26.0)
 	tick.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	tick.kind = "circle"
-	tick.colourKey = "textFaint"
-	if active:
-		tick.kind = "circleCheck"
-		tick.colourKey = "accent"
 	line.add_child(tick)
+	row.set_meta("tick", tick)
 
 	var texts: VBoxContainer = Ui.vbox(3)
 	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -146,10 +187,21 @@ func _presetRow(preset: Dictionary) -> TapRow:
 	more.pressed.connect(openMenu.bind(presetId))
 	line.add_child(more)
 
-	row.selected = active
+	_showActive(row, active)
 	row.tapped.connect(toggle.bind(presetId))
 	row.longPressed.connect(openMenu.bind(presetId))
 	return row
+
+
+func _showActive(row: TapRow, active: bool) -> void:
+	var tick: AppIcon = row.get_meta("tick")
+	row.selected = active
+	if active:
+		tick.kind = "circleCheck"
+		tick.colourKey = "accent"
+	else:
+		tick.kind = "circle"
+		tick.colourKey = "textFaint"
 
 
 func _offsetSummary(preset: Dictionary) -> String:

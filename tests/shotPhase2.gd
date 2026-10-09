@@ -204,7 +204,7 @@ func _themePass(themeId: String, body: String, everything: bool) -> void:
 		picker.setRegionFilter("rearDelt")
 		await _wait(0.4)
 		await _grab("picker_muscle")
-		picker.setUnusedFirst(true)
+		picker.setOrder("unused")
 		await _wait(0.4)
 		await _grab("picker_unused")
 		picker.openExerciseMenu("Face_Pull")

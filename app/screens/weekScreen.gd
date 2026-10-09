@@ -125,6 +125,7 @@ var targetsLine: HBoxContainer = null
 var targetsText: Label = null
 var cardioPanel: PanelContainer = null
 var cardioBox: VBoxContainer = null
+var writingOverlay: bool = false
 
 
 func _ready() -> void:
@@ -225,7 +226,7 @@ func _onStorageChanged(section: String) -> void:
 	# settings: the slider (every target counts from it), the active presets and the overlay chips
 	if section == "settings":
 		_applySettings()
-		if bodyCard != null and not replaying():
+		if bodyCard != null and not replaying() and not writingOverlay:
 			_readTargets()
 			_applyOverlays(false)
 		return
@@ -331,15 +332,22 @@ func cardioOn() -> bool:
 
 
 func setTargetsOverlay(on: bool) -> void:
-	if on != bool(Storage.settings["overlayTargets"]):
-		Storage.setSetting("overlayTargets", on)
+	_writeOverlay("overlayTargets", on)
 	_applyOverlays(true)
 
 
 func setCardioOverlay(on: bool) -> void:
-	if on != bool(Storage.settings["overlayCardio"]):
-		Storage.setSetting("overlayCardio", on)
+	_writeOverlay("overlayCardio", on)
 	_applyOverlays(true)
+
+
+func _writeOverlay(key: String, on: bool) -> void:
+	# remembered for next time; the page is redrawn once by the caller, not again by the save
+	if on == bool(Storage.settings[key]):
+		return
+	writingOverlay = true
+	Storage.setSetting(key, on)
+	writingOverlay = false
 
 
 func _readTargets() -> void:

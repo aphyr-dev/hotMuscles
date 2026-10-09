@@ -22,6 +22,7 @@ const bench: String = "Barbell_Bench_Press_-_Medium_Grip"
 const row: String = "Bent_Over_Barbell_Row"
 const pulldown: String = "Wide-Grip_Lat_Pulldown"
 const curl: String = "Barbell_Curl"
+const pullups: String = "Pullups"
 
 var storage: Node = null
 var appTheme: Node = null
@@ -58,6 +59,9 @@ func _run() -> void:
 	await _checkRegionSheetToPicker()
 	await _checkPickerFilters()
 	await _checkBack()
+	await _checkSeveralMuscles()
+	await _checkCardio()
+	await _checkTargets()
 	await _checkBackup()
 
 	_closeApp()
@@ -330,12 +334,12 @@ func _checkTemplateApplyAndDiscard() -> void:
 	var unusedPicker: Node = workout.openPicker()
 	await _wait(settleSeconds)
 	var allCount: int = unusedPicker.results.size()
-	unusedPicker.setUnusedFirst(true)
+	unusedPicker.setOrder("unused")
 	_expectEqual("unused: nothing dropped", unusedPicker.results.size(), allCount)
-	_expectTrue("unused: top row hits unused muscles", unusedPicker.unusedShares.has(unusedPicker.results[0]["id"]))
+	_expectTrue("unused: top row hits unused muscles", unusedPicker.orderShares.has(unusedPicker.results[0]["id"]))
 	_expectTrue("unused: bench is not on top", unusedPicker.results[0]["id"] != bench)
 	unusedPicker.setRegionFilter("lats")
-	_expectTrue("a tapped muscle turns unused off", not unusedPicker.unusedFirst and not unusedPicker.unusedChip.button_pressed)
+	_expectTrue("a tapped muscle turns unused off", unusedPicker.orderMode == "" and not unusedPicker.unusedChip.button_pressed)
 	app.goBack()
 	await _wait(settleSeconds)
 
@@ -622,19 +626,19 @@ func _checkRegionSheetToPicker() -> void:
 	await _wait(settleSeconds)
 	var picker: Node = app.top()
 	_expectTrue("Find exercises opens the picker", _isA(picker, "PickerScreen"))
-	_expectEqual("filtered to that muscle", picker.regionFilter, "lowerChest")
+	_expectEqual("filtered to that muscle", picker.regionFilters, ["lowerChest"])
 	_expectEqual("region cleared on the week when the sheet closed", week.bodyCard.bodyView.selectedRegions, [])
 	var allReach: bool = picker.results.size() > 0
 	for exercise in picker.results:
 		if _share(exercise["id"], "lowerChest") <= 0.0:
 			allReach = false
 	_expectTrue("every result reaches the muscle", allReach)
-	_expectEqual("results = HeatEngine.recommend order", picker.results[0]["id"], HeatEngine.recommend("lowerChest", appData.exercises, {"prefs": storage.exercisePrefs, "used": storage.usedExercises()})[0]["exercise"]["id"])
+	_expectEqual("results = HeatEngine.recommend order", picker.results[0]["id"], HeatEngine.recommend(["lowerChest"], appData.exercises, {"prefs": storage.exercisePrefs, "used": storage.usedExercises()})[0]["exercise"]["id"])
 	_expectEqual("nothing ticked yet", picker.addButton.text, "Tick exercises to add")
 	picker.toggleExercise(bench)
 	_expectEqual("start-a-workout wording", picker.addButton.text, "Start workout with 1 exercise")
 	picker.clearRegionFilter()
-	_expectEqual("chip clears the filter", picker.regionFilter, "")
+	_expectEqual("chip clears the filter", picker.regionFilters, [])
 	picker.addSelected()
 	await _wait(settleSeconds)
 	_expectTrue("a workout started and opened in place of the picker", _isA(app.top(), "WorkoutScreen") and app.screens.size() == 2)
@@ -737,6 +741,155 @@ func _checkBack() -> void:
 	await _wait(settleSeconds)
 	workout.discard()
 	await _wait(settleSeconds)
+
+
+### /// SEVERAL MUSCLES, CARDIO, TARGETS ///
+
+func _checkSeveralMuscles() -> void:
+	### WHAT THIS DOES
+	# a hold starts picking several muscles, then taps add / drop more; the chip names them and clears
+	# them all; a tap with nothing held picks just one again
+
+	var picker: Node = app.openPicker(null, "")
+	await _wait(settleSeconds)
+	_expectTrue("the body listens for a hold", picker.bodyCard.bodyView.regionLongPressed.get_connections().size() > 0)
+	picker.addRegionFilter("lats")
+	picker.setRegionFilter("biceps")
+	_expectEqual("hold then tap: two muscles", picker.regionFilters, ["lats", "biceps"])
+	_expectEqual("both outlined", picker.bodyCard.bodyView.selectedRegions, ["lats", "biceps"])
+	_expectTrue("chip names both", picker.filterChip.text.contains("lats + biceps"))
+	var allReach: bool = picker.results.size() > 0
+	for exercise in picker.results:
+		if _share(exercise["id"], "lats") + _share(exercise["id"], "biceps") <= 0.0:
+			allReach = false
+	_expectTrue("every result reaches one of them (%d)" % picker.results.size(), allReach)
+	_expectEqual("pull-ups share is the sum", float(picker.resultShares[pullups]), _share(pullups, "lats") + _share(pullups, "biceps"))
+	picker.setRegionFilter("lats")
+	_expectEqual("tapping a picked one drops it", picker.regionFilters, ["biceps"])
+	picker.clearRegionFilter()
+	_expectTrue("chip clears them all", picker.regionFilters.is_empty() and not picker.pickingSeveral)
+	picker.setRegionFilter("lats")
+	picker.setRegionFilter("glutes")
+	_expectEqual("plain taps: one muscle at a time", picker.regionFilters, ["glutes"])
+	picker.clearRegionFilter()
+
+	# a cardio exercise goes in with minutes and its own default effort
+	picker.toggleExercise("Hiking")
+	picker.addSelected()
+	await _wait(settleSeconds)
+	var entry: Dictionary = storage.currentWorkout()["entries"][0]
+	_expectEqual("cardio entry: starting minutes", int(entry["minutes"]), storage.cardioStartMinutes)
+	_expectEqual("cardio entry: Hiking defaults to easy", entry["effort"], "easy")
+
+
+func _checkCardio() -> void:
+	### WHAT THIS DOES
+	# minutes and effort on the workout row, finish keeps a minutes-only workout, the home page's
+	# Cardio chip appears and lights the vessels and the panel
+
+	var workout: Node = app.top()
+	_expectTrue("workout on top", _isA(workout, "WorkoutScreen"))
+	workout.setMinutes(0, 40)
+	workout.changeMinutes(0, workout.minuteStep)
+	workout.setEffort(0, "hard")
+	_expectEqual("row shows the minutes", workout.rowParts[0]["setsLabel"].text, "45")
+	_expectEqual("effort chip follows", workout.rowParts[0]["effortChips"].selectedId, "hard")
+	_expectTrue("summary counts cardio minutes", workout.summaryLabel.text.contains("45 min cardio"))
+	_expectEqual("effort remembered for next time", storage.getPref("Hiking")["effort"], "hard")
+	var confirm: Node = workout.requestFinish()
+	await _wait(settleSeconds)
+	_expectEqual("minutes alone can finish a workout", confirm.titleLabel.text, "Finish workout?")
+	confirm.choose("finish")
+	await _wait(settleSeconds)
+	app.topSheet().choose("cancel")
+	await _wait(settleSeconds)
+	var week: Node = app.weekScreen()
+	_expectTrue("back on the week", app.top() == week)
+	_expectTrue("Cardio chip shows once cardio is logged", week.cardioChip.visible)
+	_expectNear("hard cardio minutes this week", float(week.cardioMinutes["hardCardio"]), 45.0)
+	week.setCardioOverlay(true)
+	var layer: Node = week.bodyCard.bodyView.vesselLayer
+	_expectTrue("vessels drawn", layer != null and layer.visible)
+	_expectNear("red full (45 of 30 min)", float(layer.levels["red"]), 1.0)
+	_expectNear("blue empty", float(layer.levels["blue"]), 0.0)
+	var networks: Dictionary = layer._networks(week.bodyCard.bodyView.slots[0]["data"])
+	_expectTrue("vessels: trunk + head, arm, torso, leg on each side (%d)" % networks["chains"].size(), networks["chains"].size() == 9)
+	_expectTrue("hint gives the minutes", week.cardHintText().contains("Hard 45/30 min"))
+	_expectTrue("cardio panel on the balance tab", week.cardioPanel.visible and _findText(week.cardioPanel, "Cardio this week"))
+	week.setCardioOverlay(false)
+	_expectTrue("vessels off", not layer.visible and not week.cardioPanel.visible)
+
+
+func _checkTargets() -> void:
+	### WHAT THIS DOES
+	# presets on from the Targets screen, the home overlay against them, picker tags and Below target,
+	# a custom target made, deleted and brought back
+
+	var week: Node = app.weekScreen()
+	_expectTrue("no presets on: no Targets chip", not week.targetsChip.visible)
+	var screen: Node = app.openTargets()
+	await _wait(settleSeconds)
+	screen.toggle("basketball")
+	screen.toggle("mew2")
+	await _wait(0.1)
+	_expectEqual("two presets on", storage.settings["activeTargets"], ["basketball", "mew2"])
+	_expectTrue("their rows show on", screen.rows["basketball"].selected and screen.rows["mew2"].selected and not screen.rows["marathon"].selected)
+	var baseline: float = float(storage.settings["rangeWeek"])
+	var wantGlutes: float = maxf(baseline + float(appData.presetById["basketball"]["offsets"]["glutes"]), baseline + float(appData.presetById["mew2"]["offsets"]["glutes"]))
+
+	# a custom target: +3 glutes, saved (and switched on), deleted, undone
+	var editor: Node = screen.newTarget()
+	await _wait(settleSeconds)
+	editor.setName("Glute focus")
+	for step in range(3):
+		editor.changeOffset("glutes", 1)
+	var step: int = editor.cardioStep
+	editor.changeCardio("easyCardio", step)
+	editor.save()
+	await _wait(settleSeconds)
+	var custom: Dictionary = storage.settings["customTargets"][0]
+	_expectEqual("custom target saved", custom["offsets"]["glutes"], 3)
+	_expectEqual("custom cardio saved", int(custom["cardio"]["easyCardio"]), int(appData.cardioDefaultTarget["easyCardio"]) + step)
+	_expectTrue("a new target is switched on", storage.settings["activeTargets"].has(custom["id"]))
+	screen.deletePreset(custom["id"])
+	_expectTrue("deleted and off", storage.settings["customTargets"].is_empty() and not storage.settings["activeTargets"].has(custom["id"]))
+	app.toast.pressAction()
+	_expectTrue("undo brings it back on", storage.settings["customTargets"].size() == 1 and storage.settings["activeTargets"].has(custom["id"]))
+	screen.deletePreset(custom["id"])
+	app.goBack()
+	await _wait(settleSeconds)
+
+	# the home overlay
+	_expectTrue("Targets chip shows with presets on", week.targetsChip.visible)
+	week.setTargetsOverlay(true)
+	_expectNear("glutes target = the higher preset", float(week.regionTargets["glutes"]), wantGlutes)
+	_expectEqual("card title", week.cardTitle(), "Sets vs your targets")
+	var expected: Dictionary = HeatEngine.targetHeat(week.shownHeat, week.regionTargets, baseline)
+	_expectNear("body shows sets as a share of the target", float(week.bodyCard.bodyView.toHeat.get("glutes", 0.0)), float(expected.get("glutes", 0.0)))
+	_expectTrue("hint counts the muscles on target", week.cardHintText().contains("muscles on target"))
+	_expectTrue("balance tab names the presets", week.targetsText.text.contains("Basketball") and week.targetsText.text.contains("mew2"))
+
+	# picker: preset tags on key exercises, Below target order
+	var keyId: String = appData.presetById["basketball"]["keyExercises"][0]
+	var picker: Node = app.openPicker(null, "")
+	await _wait(settleSeconds)
+	picker.setSearch(str(appData.getExercise(keyId)["name"]))
+	await _wait(settleSeconds)
+	_expectTrue("key exercise tagged Basketball", picker.rowsById.has(keyId) and _findText(picker.rowsById[keyId], "Basketball"))
+	picker.setSearch("")
+	_expectTrue("Below target chip shown", picker.targetChip.visible)
+	picker.setOrder("target")
+	_expectTrue("below target: top row works a short muscle", picker.orderShares.has(picker.results[0]["id"]) and picker.targetChip.button_pressed)
+	picker.setRegionFilter("lats")
+	_expectTrue("a tapped muscle turns it off", picker.orderMode == "" and not picker.targetChip.button_pressed)
+	app.goBack()
+	await _wait(settleSeconds)
+
+	# leave the rest of the run as it was
+	week.setTargetsOverlay(false)
+	storage.setSetting("activeTargets", [])
+	await _wait(0.1)
+	_expectTrue("presets off: chip gone, plain title", not week.targetsChip.visible and week.cardTitle() != "Sets vs your targets")
 
 
 ### /// BACKUP ///

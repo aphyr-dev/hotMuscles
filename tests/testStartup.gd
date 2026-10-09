@@ -161,6 +161,14 @@ func _normalUse() -> void:
 	await _timed("week: zoom reset", func() -> void: week.bodyCard.bodyView.resetZoom(true))
 	await _timed("week: workouts tab", func() -> void: week.showTab("workouts"))
 	await _timed("week: balance tab", func() -> void: week.showTab("balance"))
+	await _timed("week: targets overlay on", func() -> void: week.setTargetsOverlay(true))
+	await _timed("week: targets overlay off", func() -> void: week.setTargetsOverlay(false))
+	await _timed("week: cardio overlay on", func() -> void: week.setCardioOverlay(true))
+	await _timed("week: cardio overlay running", func() -> void: pass)
+	await _timed("week: cardio overlay off", func() -> void: week.setCardioOverlay(false))
+	await _timed("targets: open", func() -> void: app.openTargets())
+	await _timed("targets: toggle a preset", func() -> void: app.top().toggle("mew2"))
+	await _timed("targets: back", func() -> void: app.goBack())
 	await _timed("week: region sheet (lats)", func() -> void: week.openRegion("lats"))
 	await _timed("week: close sheet", func() -> void: app.goBack())
 	await _timed("week: start workout", func() -> void: week.startWorkout())
@@ -175,8 +183,8 @@ func _normalUse() -> void:
 	await _timed("picker: clear search", func() -> void: picker.setSearch(""))
 	await _timed("picker: star a row", func() -> void: picker.setFavourite(str(picker.results[1]["id"]), true))
 	await _timed("picker: clear muscle filter", func() -> void: picker.clearRegionFilter())
-	await _timed("picker: filter by unused", func() -> void: picker.setUnusedFirst(true))
-	await _timed("picker: unused off", func() -> void: picker.setUnusedFirst(false))
+	await _timed("picker: filter by unused", func() -> void: picker.setOrder("unused"))
+	await _timed("picker: unused off", func() -> void: picker.setOrder(""))
 	await _timed("picker: templates tab", func() -> void: picker.showTab("templates"))
 	await _timed("picker: back", func() -> void: app.goBack())
 	await _timed("workout: finish confirm", func() -> void: workout.requestFinish())
@@ -237,6 +245,8 @@ func _seed() -> void:
 	_addWorkout(now - 3.1 * day, 3300.0, [["Bent_Over_Barbell_Row", 4], ["Wide-Grip_Lat_Pulldown", 3], ["Pullups", 3], ["Face_Pull", 3], ["Barbell_Curl", 3], ["Hammer_Curls", 2]])
 	_addWorkout(now - 1.05 * day, 4200.0, [["Barbell_Squat", 4], ["Romanian_Deadlift", 3], ["Leg_Press", 3], ["Lying_Leg_Curls", 3], ["Standing_Calf_Raises", 4], ["Cable_Crunch", 3]])
 	_addWorkout(now - 10.0 * day, 3000.0, [["Barbell_Deadlift", 3]])
+	_addCardio(now - 2.0 * day, "Running_Outdoor", 35, "hard")
+	storage.setSetting("activeTargets", ["basketball"])
 
 
 func _addWorkout(startedAt: float, length: float, rows: Array) -> void:
@@ -244,6 +254,14 @@ func _addWorkout(startedAt: float, length: float, rows: Array) -> void:
 	for row in rows:
 		storage.addEntry(row[0], row[1], false)
 	storage.finishWorkout(startedAt + length)
+
+
+func _addCardio(startedAt: float, exerciseId: String, minutes: int, effort: String) -> void:
+	storage.startWorkout(startedAt)
+	storage.addEntry(exerciseId)
+	storage.setEntryMinutes(0, minutes)
+	storage.setEntryEffort(0, effort)
+	storage.finishWorkout(startedAt + minutes * 60.0)
 
 
 func _wait(seconds: float) -> void:

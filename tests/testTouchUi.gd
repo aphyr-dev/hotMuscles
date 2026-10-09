@@ -211,6 +211,21 @@ func _checkPickerRows() -> void:
 	await _wait(0.2)
 	_expectTrue("tapping Undo un-hides it", not bool(storage.getPref(rowId)["hidden"]))
 
+	# hold a muscle on the body = start picking several, then a tap adds another
+	var body: Control = picker.bodyCard.bodyView
+	var chest: Vector2 = body.get_global_transform_with_canvas() * body.regionCentre("lowerChest")
+	_touch(0, chest, true)
+	await _wait(0.75)
+	_touch(0, chest, false)
+	await _wait(0.2)
+	_expectEqual("holding the chest picks it", picker.regionFilters, ["lowerChest"])
+	var arm: Vector2 = body.get_global_transform_with_canvas() * body.regionCentre("biceps")
+	await _tap(arm)
+	await _wait(0.2)
+	_expectEqual("then a tap adds the biceps", picker.regionFilters, ["lowerChest", "biceps"])
+	picker.clearRegionFilter()
+	await _wait(0.2)
+
 
 func _checkChipStrip() -> void:
 	var picker: Node = app.top()

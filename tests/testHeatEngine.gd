@@ -35,7 +35,8 @@ func _run() -> void:
 	var ok: bool = data.loadAll("res://appData")
 	_expectTrue("app data loads", ok)
 	_expectTrue("30 regions", data.regions.size() == 30)
-	_expectTrue("906 exercises", data.exercises.size() == 906)
+	_expectTrue("927 exercises (12 of them the added cardio activities)", data.exercises.size() == 927)
+	_expectTrue("11 target presets", data.presets.size() == 11)
 
 	_checkShares()
 	_checkEffectiveSets()
@@ -45,6 +46,8 @@ func _run() -> void:
 	_checkContributions()
 	_checkRecommend()
 	_checkUnused()
+	_checkTargets()
+	_checkCardio()
 	_checkSearch()
 
 	if failures == 0:
@@ -207,15 +210,15 @@ func _checkRecommend() -> void:
 	### WHAT THIS DOES
 	# rear delt: the top three are full-share rear delt lifts, the most focused first; favourite boost; filters
 
-	var plain: Array = engine.recommend("rearDelt", data.exercises)
+	var plain: Array = engine.recommend(["rearDelt"], data.exercises)
 	for index in range(3):
 		_expectNear("recommend rearDelt #%d is a full rear delt set" % (index + 1), data.exerciseShare(plain[index]["exercise"]["id"], "rearDelt"), 1.0)
 	_expectTrue("recommend rearDelt: most focused first", plain[0]["score"] >= plain[1]["score"] and plain[1]["score"] >= plain[2]["score"])
 	_expectTrue("recommend rearDelt: face pull (less focused) below the flyes", _indexOfId(plain, "Face_Pull") > _indexOfId(plain, "Reverse_Machine_Flyes"))
 	var prefs: Dictionary = {"Face_Pull": {"favourite": true, "hidden": false}}
-	var boosted: Array = engine.recommend("rearDelt", data.exercises, {"prefs": prefs})
+	var boosted: Array = engine.recommend(["rearDelt"], data.exercises, {"prefs": prefs})
 	_expectEqual("favourite face pull jumps to #1", boosted[0]["exercise"]["id"], "Face_Pull")
-	var cable: Array = engine.recommend("rearDelt", data.exercises, {"equipment": ["cable"], "limit": 3})
+	var cable: Array = engine.recommend(["rearDelt"], data.exercises, {"equipment": ["cable"], "limit": 3})
 	var cableOnly: bool = true
 	for row in cable:
 		if row["exercise"]["equipment"] != "cable":
@@ -224,15 +227,20 @@ func _checkRecommend() -> void:
 	_expectNear("cable filter: #1 is a full rear delt set", data.exerciseShare(cable[0]["exercise"]["id"], "rearDelt"), 1.0)
 	_expectEqual("limit 3", cable.size(), 3)
 	var hiddenPrefs: Dictionary = {"Face_Pull": {"favourite": false, "hidden": true}}
-	var hidden: Array = engine.recommend("rearDelt", data.exercises, {"prefs": hiddenPrefs})
+	var hidden: Array = engine.recommend(["rearDelt"], data.exercises, {"prefs": hiddenPrefs})
 	var hiddenIds: Array = []
 	for row in hidden:
 		hiddenIds.append(row["exercise"]["id"])
 	_expectTrue("hidden face pull left out", not hiddenIds.has("Face_Pull"))
-	var shown: Array = engine.recommend("rearDelt", data.exercises, {"prefs": hiddenPrefs, "showHidden": true})
+	var shown: Array = engine.recommend(["rearDelt"], data.exercises, {"prefs": hiddenPrefs, "showHidden": true})
 	_expectEqual("showHidden brings it back", shown.size(), hidden.size() + 1)
-	var tibialis: Array = engine.recommend("tibialis", data.exercises)
+	var tibialis: Array = engine.recommend(["tibialis"], data.exercises)
 	_expectEqual("tibialis: the added raise", tibialis[0]["exercise"]["id"], "Tibialis_Raise")
+	var several: Array = engine.recommend(["lats", "rearDelt"], data.exercises)
+	var pullupRow: int = _indexOfId(several, pullups)
+	_expectTrue("several muscles: pull-ups listed", pullupRow >= 0)
+	if pullupRow >= 0:
+		_expectNear("several muscles: pull-ups share summed (lats 1.0 + rear delt 0.3)", float(several[pullupRow]["share"]), 1.3)
 
 
 func _checkUnused() -> void:
@@ -243,15 +251,80 @@ func _checkUnused() -> void:
 	_expectEqual("bench leaves 25 muscles unused", unused.size(), 25)
 	_expectTrue("lower chest not unused", not unused.has("lowerChest"))
 	var list: Array = [data.getExercise(bench), data.getExercise(hammer), data.getExercise(pullups)]
-	var ordered: Array = engine.unusedFirst(list, unused)
+	var ordered: Array = engine.weightedFirst(list, unused)
 	_expectEqual("nothing dropped", ordered.size(), 3)
 	_expectEqual("pull-ups first (most share on unused)", ordered[0]["exercise"]["id"], pullups)
 	_expectNear("pull-ups share on unused", float(ordered[0]["share"]), 3.2)
 	_expectEqual("hammer curls second", ordered[1]["exercise"]["id"], hammer)
 	_expectEqual("bench last, nothing on unused", ordered[2]["exercise"]["id"], bench)
 	_expectNear("bench share on unused", float(ordered[2]["share"]), 0.0)
-	var none: Array = engine.unusedFirst([data.getExercise(bench), data.getExercise(hammer)], {})
+	var none: Array = engine.weightedFirst([data.getExercise(bench), data.getExercise(hammer)], {})
 	_expectEqual("no unused muscles: order kept", none[0]["exercise"]["id"], bench)
+	var halfLats: Array = engine.weightedFirst([data.getExercise(bench), data.getExercise(pullups)], {"lats": 0.5})
+	_expectNear("weighted: pull-ups lats 1.0 x weight 0.5", float(halfLats[0]["share"]), 0.5)
+
+
+func _checkTargets() -> void:
+	### WHAT THIS DOES
+	# presets: baseline + offset, never below 0, the highest preset wins; the overlay heat, on target,
+	# below target - hand-computed at baseline 12
+
+	var presetA: Dictionary = {"offsets": {"calves": 6, "neck": -14}}
+	var presetB: Dictionary = {"offsets": {"calves": 2, "lats": 4}}
+	var targets: Dictionary = engine.regionTargets([presetA, presetB], 12.0)
+	_expectNear("targets: calves the higher of 18 and 14", float(targets["calves"]), 18.0)
+	_expectNear("targets: neck 12 - 14 stops at 0", float(targets["neck"]), 0.0)
+	_expectNear("targets: lats 16", float(targets["lats"]), 16.0)
+	_expectEqual("targets: nothing on = no targets", engine.regionTargets([], 12.0), {})
+	var marathon: Dictionary = engine.regionTargets([data.presetById["marathon"]], 12.0)
+	_expectNear("marathon: calves 12 + 6", float(marathon["calves"]), 18.0)
+	_expectEqual("marathon: a target for all 30 muscles", marathon.size(), 30)
+
+	var heat: Dictionary = {"calves": 9.0, "lats": 8.0}
+	var shown: Dictionary = engine.targetHeat(heat, targets, 12.0)
+	_expectNear("overlay: calves 9 of 18 = half of 0-12", float(shown["calves"]), 6.0)
+	_expectTrue("overlay: neck (target 0) left plain", not shown.has("neck"))
+	var done: Dictionary = {"calves": 18.0, "lats": 8.0}
+	_expectEqual("on target: calves only", engine.onTarget(done, targets), ["calves"])
+	var below: Dictionary = engine.belowTarget(done, targets)
+	_expectNear("below target: lats half missing", float(below["lats"]), 0.5)
+	_expectTrue("below target: calves met, neck has none", not below.has("calves") and not below.has("neck"))
+
+
+func _checkCardio() -> void:
+	### WHAT THIS DOES
+	# minutes per light by effort zone (easy -> easy cardio, hard and very hard -> hard cardio), the
+	# health line, the targets (the default is the floor), and what counts as logged
+
+	var entries: Array = [
+		{"exerciseId": "Hiking", "sets": 0, "grips": false, "minutes": 30, "effort": "easy"},
+		{"exerciseId": "Sprint_Intervals", "sets": 0, "grips": false, "minutes": 20, "effort": "veryHard"},
+		{"exerciseId": "Rope_Jumping", "sets": 0, "grips": false, "minutes": 10, "effort": "hard"},
+		{"exerciseId": "Hiking", "sets": 0, "grips": false, "minutes": 0, "effort": "easy"},
+		_entry(bench, 3, false),
+	]
+	var minutes: Dictionary = engine.cardioMinutes(entries, data.effortById, data.cardioLights)
+	_expectNear("cardio: easy minutes", float(minutes["easyCardio"]), 30.0)
+	_expectNear("cardio: hard + very hard minutes", float(minutes["hardCardio"]), 30.0)
+	_expectNear("cardio: health = 30 + 2 x 30", engine.healthMinutes(minutes), 90.0)
+	var plain: Dictionary = engine.cardioTargets([], data.cardioDefaultTarget)
+	_expectNear("cardio target default: easy 90", float(plain["easyCardio"]), 90.0)
+	_expectNear("cardio target default: hard 30", float(plain["hardCardio"]), 30.0)
+	_expectNear("cardio default meets the WHO 150", engine.healthMinutes(plain), 150.0)
+	var withMarathon: Dictionary = engine.cardioTargets([data.presetById["marathon"]], data.cardioDefaultTarget)
+	_expectNear("cardio target marathon: easy 260", float(withMarathon["easyCardio"]), 260.0)
+	var small: Dictionary = engine.cardioTargets([{"cardio": {"easyCardio": 10}}], data.cardioDefaultTarget)
+	_expectNear("cardio target: the default is the floor", float(small["easyCardio"]), 90.0)
+	_expectTrue("logged: minutes only", engine.isLogged({"sets": 0, "minutes": 5}))
+	_expectTrue("not logged: 0 sets 0 minutes", not engine.isLogged({"sets": 0, "minutes": 0}))
+	_expectTrue("every cardio exercise has a default effort", _allCardioHaveEffort())
+
+
+func _allCardioHaveEffort() -> bool:
+	for exercise in data.exercises:
+		if exercise["category"] == "cardio" and not data.effortById.has(str(exercise.get("cardioEffort", ""))):
+			return false
+	return true
 
 
 func _checkSearch() -> void:

@@ -32,6 +32,7 @@ func _run() -> void:
 	_checkWorkoutFlow()
 	_checkBackup()
 	_checkBrokenFile()
+	_checkCardioAndTargets()
 
 	_removeFolder(folderA)
 	_removeFolder(folderB)
@@ -191,6 +192,37 @@ func _checkBackup() -> void:
 	_expectEqual("import was saved to disk", targetReloaded.profile["body"], "female")
 	targetReloaded.free()
 	source.free()
+
+
+func _checkCardioAndTargets() -> void:
+	### WHAT THIS DOES
+	# cardio entries keep minutes + effort through a save, a minutes-only entry counts as logged on
+	# finish, a planned one (0 and 0) is dropped; custom targets are cleaned into range
+
+	var storage: Node = _fresh(folderC)
+	storage.addEntries([
+		{"exerciseId": "Hiking", "sets": 0, "grips": false, "minutes": 45, "effort": "easy"},
+		{"exerciseId": "Rope_Jumping", "sets": 0, "grips": false, "minutes": 0, "effort": "hard"},
+		{"exerciseId": "Pullups", "sets": 3, "grips": false},
+	])
+	storage.setEntryMinutes(0, 50)
+	storage.setEntryEffort(0, "hard")
+	_expectEqual("strength entry has no minutes field", storage.currentWorkout()["entries"][2].has("minutes"), false)
+	var reloaded: Node = _fresh(folderC)
+	_expectEqual("cardio minutes saved", reloaded.currentWorkout()["entries"][0]["minutes"], 50)
+	_expectEqual("cardio effort saved", reloaded.currentWorkout()["entries"][0]["effort"], "hard")
+	_expectEqual("effort remembered for next time", reloaded.getPref("Hiking")["effort"], "hard")
+	var done: Dictionary = reloaded.finishWorkout()
+	_expectEqual("finish keeps the minutes-only entry, drops the planned one", done["entries"].size(), 2)
+	reloaded.setSetting("customTargets", [{"id": "c1", "name": "Mine", "offsets": {"glutes": 40, "neck": -40}, "cardio": {"easyCardio": -5}}])
+	var custom: Dictionary = reloaded.settings["customTargets"][0]
+	_expectEqual("custom offset capped at +10", custom["offsets"]["glutes"], 10)
+	_expectEqual("custom offset floored at -12", custom["offsets"]["neck"], -12)
+	_expectEqual("custom cardio never below 0", custom["cardio"]["easyCardio"], 0)
+	reloaded.setSetting("activeTargets", ["c1", "c1", "marathon"])
+	_expectEqual("active targets each once", reloaded.settings["activeTargets"], ["c1", "marathon"])
+	storage.free()
+	reloaded.free()
 
 
 func _checkBrokenFile() -> void:
