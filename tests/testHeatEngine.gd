@@ -35,7 +35,7 @@ func _run() -> void:
 	var ok: bool = data.loadAll("res://appData")
 	_expectTrue("app data loads", ok)
 	_expectTrue("30 regions", data.regions.size() == 30)
-	_expectTrue("884 exercises", data.exercises.size() == 884)
+	_expectTrue("906 exercises", data.exercises.size() == 906)
 
 	_checkShares()
 	_checkEffectiveSets()
@@ -64,6 +64,14 @@ func _expectTrue(label: String, condition: bool) -> void:
 	else:
 		failures += 1
 		print("FAIL  " + label)
+
+
+func _indexOfId(rows: Array, exerciseId: String) -> int:
+	# where an exercise sits in a recommend list (-1 = not there)
+	for index in range(rows.size()):
+		if rows[index]["exercise"]["id"] == exerciseId:
+			return index
+	return -1
 
 
 func _expectNear(label: String, got: float, want: float) -> void:
@@ -197,17 +205,23 @@ func _checkContributions() -> void:
 
 func _checkRecommend() -> void:
 	### WHAT THIS DOES
-	# rear delt: three 1.0-share curated lifts, the most focused first; favourite boost; filters
+	# rear delt: the top three are full-share rear delt lifts, the most focused first; favourite boost; filters
 
 	var plain: Array = engine.recommend("rearDelt", data.exercises)
-	_expectEqual("recommend rearDelt #1 (most focused)", plain[0]["exercise"]["id"], "Reverse_Machine_Flyes")
-	_expectEqual("recommend rearDelt #2", plain[1]["exercise"]["id"], "Reverse_Flyes")
-	_expectEqual("recommend rearDelt #3", plain[2]["exercise"]["id"], "Face_Pull")
+	for index in range(3):
+		_expectNear("recommend rearDelt #%d is a full rear delt set" % (index + 1), data.exerciseShare(plain[index]["exercise"]["id"], "rearDelt"), 1.0)
+	_expectTrue("recommend rearDelt: most focused first", plain[0]["score"] >= plain[1]["score"] and plain[1]["score"] >= plain[2]["score"])
+	_expectTrue("recommend rearDelt: face pull (less focused) below the flyes", _indexOfId(plain, "Face_Pull") > _indexOfId(plain, "Reverse_Machine_Flyes"))
 	var prefs: Dictionary = {"Face_Pull": {"favourite": true, "hidden": false}}
 	var boosted: Array = engine.recommend("rearDelt", data.exercises, {"prefs": prefs})
 	_expectEqual("favourite face pull jumps to #1", boosted[0]["exercise"]["id"], "Face_Pull")
 	var cable: Array = engine.recommend("rearDelt", data.exercises, {"equipment": ["cable"], "limit": 3})
-	_expectEqual("cable filter: face pull first", cable[0]["exercise"]["id"], "Face_Pull")
+	var cableOnly: bool = true
+	for row in cable:
+		if row["exercise"]["equipment"] != "cable":
+			cableOnly = false
+	_expectTrue("cable filter: cable lifts only", cableOnly)
+	_expectNear("cable filter: #1 is a full rear delt set", data.exerciseShare(cable[0]["exercise"]["id"], "rearDelt"), 1.0)
 	_expectEqual("limit 3", cable.size(), 3)
 	var hiddenPrefs: Dictionary = {"Face_Pull": {"favourite": false, "hidden": true}}
 	var hidden: Array = engine.recommend("rearDelt", data.exercises, {"prefs": hiddenPrefs})
@@ -251,4 +265,7 @@ func _checkSearch() -> void:
 			allDumbbell = false
 	_expectTrue("equipment filter holds", allDumbbell and dumbbells.size() > 0)
 	_expectEqual("nonsense finds nothing", data.search("zzqqxx").size(), 0)
-	_expectTrue("exercisesForRegion tibialis", data.exercisesForRegion("tibialis").size() == 1)
+	var tibialisIds: Array = []
+	for exercise in data.exercisesForRegion("tibialis"):
+		tibialisIds.append(exercise["id"])
+	_expectTrue("exercisesForRegion tibialis: the raise and the researched calf/balance moves", tibialisIds.size() == 4 and tibialisIds.has("Tibialis_Raise"))

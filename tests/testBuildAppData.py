@@ -31,9 +31,10 @@ def loadBuilder():
     return module
 
 
-def runCase(curatedData, rawText, outFolder):
+def runCase(curatedData, rawText, outFolder, researchedData=None):
     ### WHAT THIS DOES
-    # runs the builder against a temp curated file and a temp out folder, returns (code, output)
+    # runs the builder against a temp curated file and a temp out folder, returns (code, output);
+    # researchedData replaces researchedExercises.json when given
 
     builder = loadBuilder()
     tempCurated = Path(outFolder) / "curated.json"
@@ -42,6 +43,10 @@ def runCase(curatedData, rawText, outFolder):
     else:
         tempCurated.write_text(rawText, encoding="utf-8")
     builder.curatedPath = tempCurated
+    if researchedData is not None:
+        tempResearched = Path(outFolder) / "researched.json"
+        tempResearched.write_text(json.dumps(researchedData), encoding="utf-8")
+        builder.researchedPath = tempResearched
     builder.outDir = Path(outFolder) / "out"
     captured = io.StringIO()
     with redirect_stdout(captured):
@@ -77,10 +82,11 @@ def main():
     broken["added"]["Y_Raise"]["targets"]["lowerTraps"] = -0.2
     cases.append(("negative share", broken, None, "outside 0..1"))
 
-    # unreachable region - tibialis is only reached by the added tibialis raise
+    # unreachable region - with no researched rows, tibialis is only reached by the added tibialis raise
     broken = copy.deepcopy(base)
     del broken["added"]["Tibialis_Raise"]
-    cases.append(("unreachable region", broken, None, "region 'tibialis' is not reached"))
+    noResearched = {"exercises": {}, "added": {}, "aliases": {}}
+    cases.append(("unreachable region", broken, None, "region 'tibialis' is not reached", noResearched))
 
     # grip exercise without a forearm share
     broken = copy.deepcopy(base)
@@ -96,9 +102,13 @@ def main():
     broken["added"]["Barbell_Curl"] = {"name": "x", "equipment": "barbell", "category": "strength", "forearmKind": "none", "targets": {"biceps": 1.0}}
     cases.append(("added id already in database", broken, None, "already exists in the database"))
 
-    for label, data, rawText, expected in cases:
+    for case in cases:
+        label, data, rawText, expected = case[0:4]
+        researched = None
+        if len(case) > 4:
+            researched = case[4]
         with tempfile.TemporaryDirectory() as folder:
-            code, output, outDir = runCase(data, rawText, folder)
+            code, output, outDir = runCase(data, rawText, folder, researched)
             wrote = outDir.exists()
         ok = code != 0 and expected in output and not wrote
         if ok:
