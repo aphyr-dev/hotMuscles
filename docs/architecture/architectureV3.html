@@ -8,7 +8,8 @@
      msedge.exe --headless=new --disable-gpu --no-pdf-header-footer
        --print-to-pdf="<project>/docs/hotMusclesArchitecture_v3.pdf" "file:///<project>/docs/architecture/architectureV3.html"
      every file path and function name in here is real - when a file moves or a function is renamed, fix it here too
-     img/ holds app screenshots (tests/shotPhase2.gd, ember theme) and the male front body map split into its R/G/B channels -->
+     img/ holds app screenshots (tests/shotPhase2.gd look mode: Modern style + Ember palette, screenLooks.png Frutiger + Glacier)
+     and the male front body map split into its R/G/B channels -->
 
 <style>
 :root {
@@ -92,6 +93,11 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
 .passes img { width: 100%; border-radius: 10px; border: 1px solid var(--line); display: block; }
 .passes figcaption { font-size: 8.8pt; margin-top: 4px; }
 .passes figcaption b { font-family: "Bahnschrift", sans-serif; }
+.paletteGrid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
+.paletteCard { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 6px 7px; font-size: 8pt; line-height: 1.3; }
+.paletteCard b { font-family: "Bahnschrift", sans-serif; font-size: 9.5pt; }
+.swatches { display: flex; height: 14px; border-radius: 5px; overflow: hidden; border: 1px solid var(--line); margin-bottom: 4px; }
+.swatches i { flex: 1; }
 </style>
 </head>
 <body>
@@ -100,9 +106,9 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
 <section class="page" style="background: linear-gradient(160deg, #15161b 0%, #1d1f26 55%, #2a1a14 100%); color: #ece8e1;">
   <div style="display:grid; grid-template-columns: 1fr 64mm; gap: 12mm; height: 100%;">
     <div style="display:flex; flex-direction:column;">
-      <div class="kicker" style="margin-top:6mm;">Architecture guide · v0.4</div>
+      <div class="kicker" style="margin-top:6mm;">Architecture guide · v0.7</div>
       <h1 style="font-size: 52pt; line-height: 1; margin-top: 6px;">hot<span style="color: var(--accent);">Muscles</span></h1>
-      <p style="font-size: 14pt; color: #b9b4ab; margin-top: 10px; max-width: 105mm;">A phone app for logging gym workouts. It shows how many sets each muscle got in the last 7 days as a colour heatmap on a body.</p>
+      <p style="font-size: 14pt; color: #b9b4ab; margin-top: 10px; max-width: 105mm;">A phone app for logging gym workouts and cardio. It shows how many sets each muscle got (today, this week, or a week on average) as a colour heatmap on a body, against targets you pick.</p>
 
       <svg viewBox="0 0 300 26" width="105mm" style="margin: 8mm 0 4mm;">
         <defs>
@@ -122,24 +128,27 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
       </svg>
 
       <div class="grid3" style="margin-top: 4mm; gap: 8px;">
-        <div class="stat" style="background:#22242b; border-color:#30333b;"><div class="n">884</div><div class="l" style="color:#a3a7b0;">exercises</div></div>
+        <div class="stat" style="background:#22242b; border-color:#30333b;"><div class="n">927</div><div class="l" style="color:#a3a7b0;">exercises</div></div>
         <div class="stat" style="background:#22242b; border-color:#30333b;"><div class="n">30</div><div class="l" style="color:#a3a7b0;">muscle regions</div></div>
-        <div class="stat" style="background:#22242b; border-color:#30333b;"><div class="n">5</div><div class="l" style="color:#a3a7b0;">screens</div></div>
+        <div class="stat" style="background:#22242b; border-color:#30333b;"><div class="n">7</div><div class="l" style="color:#a3a7b0;">screens</div></div>
         <div class="stat" style="background:#22242b; border-color:#30333b;"><div class="n">4</div><div class="l" style="color:#a3a7b0;">bodies × views</div></div>
-        <div class="stat" style="background:#22242b; border-color:#30333b;"><div class="n">4 · 3</div><div class="l" style="color:#a3a7b0;">themes · gradients</div></div>
-        <div class="stat" style="background:#22242b; border-color:#30333b;"><div class="n">8.1k</div><div class="l" style="color:#a3a7b0;">lines of app code</div></div>
+        <div class="stat" style="background:#22242b; border-color:#30333b;"><div class="n">2 · 10 · 3</div><div class="l" style="color:#a3a7b0;">styles · palettes · gradients</div></div>
+        <div class="stat" style="background:#22242b; border-color:#30333b;"><div class="n">12.6k</div><div class="l" style="color:#a3a7b0;">lines of app code</div></div>
+        <div class="stat" style="background:#22242b; border-color:#30333b;"><div class="n">11</div><div class="l" style="color:#a3a7b0;">target presets</div></div>
+        <div class="stat" style="background:#22242b; border-color:#30333b;"><div class="n">4</div><div class="l" style="color:#a3a7b0;">home periods (day → year)</div></div>
+        <div class="stat" style="background:#22242b; border-color:#30333b;"><div class="n">2 · 3</div><div class="l" style="color:#a3a7b0;">cardio lights · efforts</div></div>
       </div>
 
       <div style="margin-top: auto; font-size: 9.5pt; color: #8d919b;">
         <p style="margin:0 0 4px;"><b style="color:#ece8e1;">What's inside</b></p>
-        <p style="margin:0;">1 Data flow · 2 App structure · 3 Screens and navigation · 4 Saved data · 5 Heat calculation · 6 Body rendering · 7 Behind the scenes</p>
+        <p style="margin:0;">1 Data flow · 2 App structure · 3 Screens and navigation · 4 Saved data · 5 Heat calculation · 6 Targets · 7 Cardio · 8 Home periods and overlays · 9 Body rendering · 10 Looks · 11 Behind the scenes</p>
         <p style="margin:8px 0 0;">Built with Godot 4.3 · one codebase → Android apk + Windows exe · fully offline</p>
         <p style="margin:8px 0 0;"><b style="color:#ece8e1;">Reading the file names:</b> every <span class="path" style="color:#ffb08a;">monospace path</span> is a real file, counted from the top of the repo (github.com/aphyr-dev/hotMuscles). A name ending in <span class="path" style="color:#ffb08a;">()</span> is a function inside the file named next to it.</p>
       </div>
     </div>
     <div style="display:flex; flex-direction:column; justify-content:center;">
       <div class="phone" style="border-color:#0b0c0f;"><img src="img/screenWeek.png" alt="Week screen"></div>
-      <div class="caption" style="color:#8d919b;">The home screen: this week's heat on front + back</div>
+      <div class="caption" style="color:#8d919b;">The home screen: this week's heat on front + back, with the Day | Week | Month | Year chips</div>
     </div>
   </div>
 </section>
@@ -178,9 +187,9 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
     <text class="p" x="84" y="185" text-anchor="middle" font-size="7.2" fill="#9a4a22">data/freeExerciseDb/</text>
     <text x="84" y="199" text-anchor="middle" font-size="8.5" fill="#6b6f78">876 exercises · cloned, not in repo</text>
     <rect x="14" y="238" width="140" height="64" rx="10" fill="#fff" stroke="#d8d3ca"/>
-    <text class="h" x="84" y="258" text-anchor="middle" font-size="11">Curated shares</text>
-    <text class="p" x="84" y="273" text-anchor="middle" font-size="6.6" fill="#9a4a22">tools/appData/curatedExercises.json</text>
-    <text x="84" y="287" text-anchor="middle" font-size="8.5" fill="#6b6f78">88 hand-tuned + 8 new exercises</text>
+    <text class="h" x="84" y="258" text-anchor="middle" font-size="11">Our own lists</text>
+    <text class="p" x="84" y="273" text-anchor="middle" font-size="7.2" fill="#9a4a22">tools/appData/*.json</text>
+    <text x="84" y="287" text-anchor="middle" font-size="8.5" fill="#6b6f78">shares, target presets, cardio</text>
 
     <!-- tools -->
     <rect x="198" y="62" width="140" height="64" rx="10" fill="#fff" stroke="#7a5af8"/>
@@ -197,15 +206,18 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
     <text x="268" y="287" text-anchor="middle" font-size="8.5" fill="#6b6f78">paints each body as region ids</text>
 
     <!-- appData -->
-    <rect x="382" y="92" width="140" height="56" rx="10" fill="#fff" stroke="#12a39a"/>
-    <text class="h p" x="452" y="112" text-anchor="middle" font-size="8.6">appData/exercises.json</text>
-    <text x="452" y="130" text-anchor="middle" font-size="8.5" fill="#6b6f78">884 exercises → region shares</text>
-    <rect x="382" y="166" width="140" height="56" rx="10" fill="#fff" stroke="#12a39a"/>
-    <text class="h p" x="452" y="186" text-anchor="middle" font-size="8.6">appData/muscles.json</text>
-    <text x="452" y="204" text-anchor="middle" font-size="8.5" fill="#6b6f78">regions, tap shapes, centres</text>
-    <rect x="382" y="240" width="140" height="56" rx="10" fill="#fff" stroke="#12a39a"/>
-    <text class="h p" x="452" y="260" text-anchor="middle" font-size="8.6">appData/bodyMaps/*.png</text>
-    <text x="452" y="278" text-anchor="middle" font-size="8.5" fill="#6b6f78">male/female × front/back</text>
+    <rect x="382" y="62" width="140" height="50" rx="10" fill="#fff" stroke="#12a39a"/>
+    <text class="h p" x="452" y="81" text-anchor="middle" font-size="8.6">appData/exercises.json</text>
+    <text x="452" y="99" text-anchor="middle" font-size="8.5" fill="#6b6f78">927 exercises → region shares</text>
+    <rect x="382" y="124" width="140" height="50" rx="10" fill="#fff" stroke="#12a39a"/>
+    <text class="h p" x="452" y="143" text-anchor="middle" font-size="8.6">appData/targets.json</text>
+    <text x="452" y="161" text-anchor="middle" font-size="8.5" fill="#6b6f78">11 presets + the cardio model</text>
+    <rect x="382" y="186" width="140" height="50" rx="10" fill="#fff" stroke="#12a39a"/>
+    <text class="h p" x="452" y="205" text-anchor="middle" font-size="8.6">appData/muscles.json</text>
+    <text x="452" y="223" text-anchor="middle" font-size="8.5" fill="#6b6f78">regions, tap shapes, centres</text>
+    <rect x="382" y="248" width="140" height="50" rx="10" fill="#fff" stroke="#12a39a"/>
+    <text class="h p" x="452" y="267" text-anchor="middle" font-size="8.6">appData/bodyMaps/*.png</text>
+    <text x="452" y="285" text-anchor="middle" font-size="8.5" fill="#6b6f78">male/female × front/back</text>
 
     <!-- app -->
     <rect x="566" y="62" width="140" height="150" rx="10" fill="#fff" stroke="#ff6a2b"/>
@@ -229,12 +241,14 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
     <path d="M154 270 C175 270 175 196 196 192" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
     <path d="M268 126 V148" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)" stroke-dasharray="3 3"/>
     <path d="M268 214 V236" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)" stroke-dasharray="3 3"/>
-    <path d="M338 182 C360 182 360 120 380 120" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
-    <path d="M338 270 C360 270 360 194 380 194" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
-    <path d="M338 270 H380" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
-    <path d="M522 120 H564" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
-    <path d="M522 194 H564" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
-    <path d="M522 268 C545 268 545 200 564 200" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+    <path d="M338 182 C360 182 360 87 380 87" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+    <path d="M338 182 C360 182 360 149 380 149" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+    <path d="M338 270 C360 270 360 211 380 211" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+    <path d="M338 273 H380" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+    <path d="M522 87 H564" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+    <path d="M522 149 H564" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+    <path d="M522 211 C543 211 545 196 564 196" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+    <path d="M522 273 C548 273 548 206 564 206" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
     <path d="M620 214 V248" stroke="#2f6dff" stroke-width="1.8" fill="none" marker-end="url(#arr)"/>
     <path d="M652 248 V216" stroke="#2f6dff" stroke-width="1.8" fill="none" marker-end="url(#arr)"/>
     <text x="604" y="236" text-anchor="end" font-size="8" fill="#1d48b5">writes</text>
@@ -244,7 +258,7 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
   </svg>
 
   <div class="grid3 compact" style="margin-top: 10px;">
-    <div class="card"><h3><span class="tag tTools">tools</span> run on the PC only</h3><p style="font-size:8.8pt; margin:0;">Re-run <code>python tools/appData/buildAppData.py</code> when a body drawing or an exercise share changes. If a share is out of range, an id is unknown, or a muscle can't be reached, it stops and writes nothing.</p></div>
+    <div class="card"><h3><span class="tag tTools">tools</span> run on the PC only</h3><p style="font-size:8.8pt; margin:0;">Re-run <code>python tools/appData/buildAppData.py</code> when a body drawing, an exercise share, a target preset or the cardio model changes. If a share or offset is out of range, an id is unknown, or a muscle can't be reached, it stops and writes nothing.</p></div>
     <div class="card"><h3><span class="tag tData">appData</span> generated, ships</h3><p style="font-size:8.8pt; margin:0;">Finished data files, read by <code>AppData.loadAll()</code> in <code>app/core/appData.gd</code>. The body PNGs ship exactly as made: each has a <code>.png.import</code> set to "keep", so Godot never re-compresses them.</p></div>
     <div class="card"><h3><span class="tag tSaves">saves</span> written by the app</h3><p style="font-size:8.8pt; margin:0;">The only files the app writes, all through <code>app/core/storage.gd</code>. Small, versioned, crash-safe. Settings → "Export backup" writes them all into one backup file.</p></div>
   </div>
@@ -252,10 +266,10 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
   <h3 style="margin-top: 10px;">Project folders and the files in them</h3>
   <table class="compact" style="font-size:8.2pt; line-height:1.3;">
     <tr><th style="width:21%;">Folder</th><th style="width:12%;">Ships?</th><th>Files</th></tr>
-    <tr><td><code>app/</code></td><td><span class="tag tApp">in the app</span></td><td><code>main.gd</code> + <code>main.tscn</code> the root · <code>core/</code> appData, storage, appTheme, heatEngine, heatGradients · <code>screens/</code> appScreen (shared base), weekScreen, workoutScreen, pickerScreen, settingsScreen, profileSetup · <code>components/</code> bodyView + bodyMap.gdshader, kineticScroll, heatRangeSlider · <code>ui/</code> ten small widgets</td></tr>
-    <tr><td><code>appData/</code></td><td><span class="tag tData">in the app</span></td><td><code>exercises.json</code> · <code>muscles.json</code> · <code>bodyMaps/male_front.png</code>, <code>male_back</code>, <code>female_front</code>, <code>female_back</code></td></tr>
-    <tr><td><code>tools/</code></td><td><span class="tag tTools">PC only</span></td><td><code>appData/</code> buildAppData.py, bakeBodyMaps.py, curatedExercises.json · <code>muscleCarve/</code> extractShapes.py, carve.py, polygonCut.gd + preview/inspection helpers · <code>build/</code> buildAll.py, checkBuild.py · <code>icon/</code> makeIcon.py</td></tr>
-    <tr><td><code>tests/</code></td><td><span class="tag tTools">PC only</span></td><td><code>runGodot.py</code> runs them all · test*.gd checks · shot*.gd screenshot drivers (page 8)</td></tr>
+    <tr><td><code>app/</code></td><td><span class="tag tApp">in the app</span></td><td><code>main.gd</code> + <code>main.tscn</code> the root · <code>core/</code> appData, storage, appTheme, heatEngine, heatGradients, targets · <code>screens/</code> appScreen (shared base) + the 7 screens (page 3) · <code>components/</code> bodyView + bodyMap.gdshader, vesselLayer, kineticScroll, heatRangeSlider · <code>ui/</code> ten small widgets · <code>looks/</code> styles and palettes (page 12)</td></tr>
+    <tr><td><code>appData/</code></td><td><span class="tag tData">in the app</span></td><td><code>exercises.json</code> · <code>muscles.json</code> · <code>targets.json</code> · <code>bodyMaps/male_front.png</code>, <code>male_back</code>, <code>female_front</code>, <code>female_back</code></td></tr>
+    <tr><td><code>tools/</code></td><td><span class="tag tTools">PC only</span></td><td><code>appData/</code> buildAppData.py, bakeBodyMaps.py + curatedExercises, researchedExercises, targetPresets, cardio (.json) · <code>muscleCarve/</code> extractShapes.py, carve.py, polygonCut.gd + helpers · <code>build/</code> buildAll.py, checkBuild.py · <code>icon/</code> makeIcon.py</td></tr>
+    <tr><td><code>tests/</code></td><td><span class="tag tTools">PC only</span></td><td><code>runGodot.py</code> runs them all · test*.gd checks · shot*.gd screenshot drivers (page 13)</td></tr>
     <tr><td><code>data/</code> · <code>models/</code></td><td><span class="tag tTools">PC only</span></td><td><code>data/muscleShapes/</code> sourceShapes.json + muscleShapes.json · <code>data/sources.md</code> where every input came from · <code>models/muscleMap/source/</code> the MuscleMap Swift files</td></tr>
     <tr><td><code>docs/</code> · <code>icons/</code></td><td><span class="tag tTools">PC only</span></td><td><code>docs/appSpec.md</code> the spec · this guide · <code>icons/</code> launcher PNGs made by makeIcon.py · root: <code>project.godot</code>, <code>export_presets.cfg</code></td></tr>
   </table>
@@ -266,7 +280,7 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
 <section class="page">
   <div class="kicker">2 · App structure</div>
   <h2>App structure: main parts and how they connect</h2>
-  <p class="lead">AppRoot (<code>app/main.gd</code>, the script on <code>app/main.tscn</code>) is the top node of the app. It keeps the stack of open screens and the layer for sheets and toasts. Three services stay loaded the whole time (Godot "autoloads", listed in <code>project.godot</code>): AppData holds the shipped files, Storage holds your saves, AppTheme holds the colours. Two helpers, HeatEngine and HeatGradients, only calculate. Screens are built from shared widgets in <code>app/ui/</code>.</p>
+  <p class="lead">AppRoot (<code>app/main.gd</code>, the script on <code>app/main.tscn</code>) is the top node of the app. It keeps the stack of open screens and the layer for sheets and toasts. Three services stay loaded the whole time (Godot "autoloads", listed in <code>project.godot</code>): AppData holds the shipped files, Storage your saves, AppTheme the look. Three helpers, HeatEngine, HeatGradients and Targets, only calculate. Screens are built from shared widgets in <code>app/ui/</code>.</p>
 
   <svg viewBox="0 0 720 520" width="100%">
     <defs>
@@ -277,7 +291,7 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
     <!-- AppRoot -->
     <rect x="170" y="0" width="380" height="110" rx="16" fill="#1b1d22"/>
     <text class="h" x="360" y="26" text-anchor="middle" font-size="15" fill="#fff">AppRoot</text>
-    <text class="p" x="360" y="42" text-anchor="middle" font-size="8.5" fill="#ffb08a">app/main.gd · 433 lines</text>
+    <text class="p" x="360" y="42" text-anchor="middle" font-size="8.5" fill="#ffb08a">app/main.gd · 467 lines</text>
     <rect x="186" y="54" width="112" height="44" rx="8" fill="#2a2c33"/>
     <text x="242" y="72" text-anchor="middle" font-size="9.5" fill="#ece8e1" font-weight="600">Screen stack</text>
     <text class="p" x="242" y="87" text-anchor="middle" font-size="7.5" fill="#a3a7b0">push() · pop()</text>
@@ -294,7 +308,7 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
     <text class="h" x="12" y="180" font-size="12" fill="#0b6f69">AppData</text>
     <text class="p" x="12" y="194" font-size="7.4" fill="#0b6f69">app/core/appData.gd</text>
     <text x="12" y="209" font-size="8.5" fill="#3a4a48">reads appData/ once: exercises,</text>
-    <text x="12" y="222" font-size="8.5" fill="#3a4a48">muscles, body maps · loadAll()</text>
+    <text x="12" y="222" font-size="8.5" fill="#3a4a48">muscles, targets, maps · loadAll()</text>
     <rect x="0" y="238" width="150" height="70" rx="12" fill="#e0e9ff" stroke="#2f6dff"/>
     <text class="h" x="12" y="258" font-size="12" fill="#1d48b5">Storage</text>
     <text class="p" x="12" y="272" font-size="7.4" fill="#1d48b5">app/core/storage.gd</text>
@@ -303,8 +317,8 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
     <rect x="0" y="316" width="150" height="70" rx="12" fill="#ffe9df" stroke="#ff6a2b"/>
     <text class="h" x="12" y="336" font-size="12" fill="#b5420f">AppTheme</text>
     <text class="p" x="12" y="350" font-size="7.4" fill="#b5420f">app/core/appTheme.gd</text>
-    <text x="12" y="365" font-size="8.5" fill="#6b3a24">builds every style in code from</text>
-    <text x="12" y="378" font-size="8.5" fill="#6b3a24">the palettes table · apply()</text>
+    <text x="12" y="365" font-size="8.5" fill="#6b3a24">a style + a palette built into</text>
+    <text x="12" y="378" font-size="8.5" fill="#6b3a24">one Godot theme · apply()</text>
 
     <!-- helpers -->
     <text class="h" x="570" y="150" font-size="11" fill="#6b6f78">MATHS HELPERS</text>
@@ -313,36 +327,45 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
     <text class="h" x="582" y="192" font-size="12">HeatEngine</text>
     <text class="p" x="582" y="206" font-size="7.4" fill="#9a4a22">app/core/heatEngine.gd</text>
     <text x="582" y="221" font-size="8.5" fill="#6b6f78">sets → heat per muscle,</text>
-    <text x="582" y="234" font-size="8.5" fill="#6b6f78">week window, balance list</text>
+    <text x="582" y="234" font-size="8.5" fill="#6b6f78">periods, targets, cardio</text>
     <rect x="570" y="250" width="150" height="70" rx="12" fill="#fff" stroke="#d8d3ca"/>
     <text class="h" x="582" y="270" font-size="12">HeatGradients</text>
     <text class="p" x="582" y="284" font-size="7.4" fill="#9a4a22">app/core/heatGradients.gd</text>
     <text x="582" y="299" font-size="8.5" fill="#6b6f78">Infrared · Scarlet · Ember:</text>
     <text x="582" y="312" font-size="8.5" fill="#6b6f78">a number 0..1 → a colour</text>
+    <rect x="570" y="328" width="150" height="70" rx="12" fill="#fff" stroke="#d8d3ca"/>
+    <text class="h" x="582" y="348" font-size="12">Targets</text>
+    <text class="p" x="582" y="362" font-size="7.4" fill="#9a4a22">app/core/targets.gd</text>
+    <text x="582" y="377" font-size="8.5" fill="#6b6f78">presets on, your own, tags →</text>
+    <text x="582" y="390" font-size="8.5" fill="#6b6f78">a target per muscle (page 8)</text>
 
     <!-- screens -->
     <text class="h" x="170" y="150" font-size="11" fill="#6b6f78">SCREENS · <tspan class="p" font-size="9" font-weight="400">app/screens/</tspan> · all extend appScreen.gd</text>
     <g font-size="9.5">
       <rect x="170" y="160" width="185" height="40" rx="10" fill="#fff" stroke="#ff6a2b"/>
-      <text x="182" y="177" font-weight="600">WeekScreen <tspan class="p" font-size="7.5" font-weight="400" fill="#9a4a22">weekScreen.gd</tspan></text><text x="182" y="191" font-size="8" fill="#6b6f78">home · heat · balance · history</text>
+      <text x="182" y="177" font-weight="600">WeekScreen <tspan class="p" font-size="7.5" font-weight="400" fill="#9a4a22">weekScreen.gd</tspan></text><text x="182" y="191" font-size="8" fill="#6b6f78">home · periods · overlays · balance</text>
       <rect x="365" y="160" width="185" height="40" rx="10" fill="#fff" stroke="#ff6a2b"/>
       <text x="377" y="177" font-weight="600">WorkoutScreen <tspan class="p" font-size="7.5" font-weight="400" fill="#9a4a22">workoutScreen.gd</tspan></text><text x="377" y="191" font-size="8" fill="#6b6f78">live workout + past-workout editor</text>
       <rect x="170" y="208" width="185" height="40" rx="10" fill="#fff" stroke="#ff6a2b"/>
       <text x="182" y="225" font-weight="600">PickerScreen <tspan class="p" font-size="7.5" font-weight="400" fill="#9a4a22">pickerScreen.gd</tspan></text><text x="182" y="239" font-size="8" fill="#6b6f78">search · filters · templates</text>
       <rect x="365" y="208" width="185" height="40" rx="10" fill="#fff" stroke="#ff6a2b"/>
-      <text x="377" y="225" font-weight="600">SettingsScreen <tspan class="p" font-size="7.5" font-weight="400" fill="#9a4a22">settingsScreen.gd</tspan></text><text x="377" y="239" font-size="8" fill="#6b6f78">looks · defaults · backup</text>
-      <rect x="170" y="256" width="380" height="40" rx="10" fill="#fff" stroke="#ff6a2b"/>
-      <text x="182" y="273" font-weight="600">ProfileSetup <tspan class="p" font-size="7.5" font-weight="400" fill="#9a4a22">profileSetup.gd</tspan></text><text x="182" y="287" font-size="8" fill="#6b6f78">first launch · 4 steps: name, body, gradient, theme (with a live preview)</text>
+      <text x="377" y="225" font-weight="600">SettingsScreen <tspan class="p" font-size="7.5" font-weight="400" fill="#9a4a22">settingsScreen.gd</tspan></text><text x="377" y="239" font-size="8" fill="#6b6f78">style · colours · targets · backup</text>
+      <rect x="170" y="256" width="185" height="40" rx="10" fill="#fff" stroke="#ff6a2b"/>
+      <text x="182" y="273" font-weight="600">ProfileSetup <tspan class="p" font-size="7.5" font-weight="400" fill="#9a4a22">profileSetup.gd</tspan></text><text x="182" y="287" font-size="8" fill="#6b6f78">first launch · 4 steps, live preview</text>
+      <rect x="365" y="256" width="185" height="40" rx="10" fill="#fff" stroke="#ff6a2b"/>
+      <text x="377" y="273" font-weight="600">TargetsScreen <tspan class="p" font-size="7.5" font-weight="400" fill="#9a4a22">targetsScreen.gd</tspan></text><text x="377" y="287" font-size="8" fill="#6b6f78">presets on/off · + <tspan class="p" font-size="7" fill="#9a4a22">targetEditor.gd</tspan></text>
     </g>
 
     <!-- components -->
     <text class="h" x="170" y="330" font-size="11" fill="#6b6f78">COMPONENTS · <tspan class="p" font-size="9" font-weight="400">app/components/</tspan></text>
-    <rect x="170" y="340" width="120" height="54" rx="10" fill="#fff8f4" stroke="#ffb999"/>
-    <text x="180" y="358" font-size="10" font-weight="600">BodyView</text><text class="p" x="180" y="371" font-size="6.6" fill="#9a4a22">bodyView.gd +</text><text class="p" x="180" y="380" font-size="6.6" fill="#9a4a22">bodyMap.gdshader</text><text x="180" y="390" font-size="8" fill="#6b6f78">draw, zoom, pan, tap</text>
-    <rect x="300" y="340" width="120" height="54" rx="10" fill="#fff8f4" stroke="#ffb999"/>
-    <text x="310" y="358" font-size="10" font-weight="600">KineticScroll</text><text class="p" x="310" y="371" font-size="6.6" fill="#9a4a22">kineticScroll.gd</text><text x="310" y="385" font-size="8" fill="#6b6f78">lists: inertia + bounce</text>
-    <rect x="430" y="340" width="120" height="54" rx="10" fill="#fff8f4" stroke="#ffb999"/>
-    <text x="440" y="358" font-size="10" font-weight="600">HeatRangeSlider</text><text class="p" x="440" y="371" font-size="6.6" fill="#9a4a22">heatRangeSlider.gd</text><text x="440" y="385" font-size="8" fill="#6b6f78">0–N slider + legend</text>
+    <rect x="170" y="340" width="92" height="54" rx="10" fill="#fff8f4" stroke="#ffb999"/>
+    <text x="178" y="358" font-size="9.5" font-weight="600">BodyView</text><text class="p" x="178" y="371" font-size="6.4" fill="#9a4a22">bodyView.gd +</text><text class="p" x="178" y="380" font-size="6.4" fill="#9a4a22">bodyMap.gdshader</text><text x="178" y="390" font-size="7.6" fill="#6b6f78">draw, zoom, pan, tap</text>
+    <rect x="267" y="340" width="92" height="54" rx="10" fill="#fff8f4" stroke="#ffb999"/>
+    <text x="275" y="358" font-size="9.5" font-weight="600">VesselLayer</text><text class="p" x="275" y="371" font-size="6.4" fill="#9a4a22">vesselLayer.gd</text><text x="275" y="385" font-size="7.6" fill="#6b6f78">cardio vessels</text>
+    <rect x="364" y="340" width="92" height="54" rx="10" fill="#fff8f4" stroke="#ffb999"/>
+    <text x="372" y="358" font-size="9.5" font-weight="600">KineticScroll</text><text class="p" x="372" y="371" font-size="6.4" fill="#9a4a22">kineticScroll.gd</text><text x="372" y="385" font-size="7.6" fill="#6b6f78">inertia + bounce</text>
+    <rect x="461" y="340" width="92" height="54" rx="10" fill="#fff8f4" stroke="#ffb999"/>
+    <text x="469" y="358" font-size="9" font-weight="600">HeatRangeSlider</text><text class="p" x="469" y="371" font-size="6.4" fill="#9a4a22">heatRangeSlider.gd</text><text x="469" y="385" font-size="7.6" fill="#6b6f78">0–N slider, legend</text>
 
     <!-- widgets -->
     <text class="h" x="0" y="430" font-size="11" fill="#6b6f78">SHARED WIDGET KIT · <tspan class="p" font-size="9" font-weight="400">app/ui/</tspan> · one file each: TapRow = tapRow.gd, BottomSheet = bottomSheet.gd …</text>
@@ -374,7 +397,7 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
 
   <div class="grid2" style="margin-top: 6px;">
     <div class="note blue compact"><b>Update loop:</b> a screen calls a Storage function such as <code>Storage.setEntrySets()</code>. That ends in <code>save()</code> in <code>storage.gd</code>, which writes the file and emits <code>changed("workouts")</code> (a Godot signal: a broadcast message). Each screen connects to it in its <code>_ready()</code> and refreshes in <code>_onStorageChanged()</code>. Screens never call each other directly.</div>
-    <div class="note compact"><b>Theme change:</b> <code>AppTheme.apply()</code> rebuilds every style from the <code>palettes</code> table at the top of <code>appTheme.gd</code> (page, surface, text, accent, cold, hot, ghost…) and emits <code>themeChanged</code>. <code>_onThemeChanged()</code> in <code>main.gd</code> then calls <code>rebuild()</code> on every open screen.</div>
+    <div class="note compact"><b>Look change:</b> <code>AppTheme.apply()</code> builds one Godot theme from the picked style + palette (page 12) and emits <code>themeChanged</code>. <code>_onThemeChanged()</code> in <code>main.gd</code> calls <code>rebuild()</code> on every open screen (a new style: <code>_restyle()</code>).</div>
   </div>
 
   <h3 style="margin-top: 10px;">Start-up sequence</h3>
@@ -383,15 +406,15 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
     <g font-size="8.5">
       <rect x="0" y="10" width="120" height="60" rx="10" fill="#1b1d22"/><text class="h" x="60" y="36" text-anchor="middle" font-size="11" fill="#fff">Godot boots</text><text class="p" x="60" y="52" text-anchor="middle" font-size="7.4" fill="#a3a7b0">project.godot</text>
       <path d="M120 40 H140" stroke="#6b6f78" stroke-width="1.5" marker-end="url(#arrS)"/>
-      <rect x="142" y="10" width="140" height="60" rx="10" fill="#dcf4f1"/><text class="h" x="212" y="30" text-anchor="middle" font-size="10.5" fill="#0b6f69">AppData loads</text><text class="p" x="212" y="45" text-anchor="middle" font-size="7.2" fill="#0b6f69">appData.gd loadAll()</text><text x="212" y="59" text-anchor="middle" fill="#3a4a48">2 JSONs + 4 maps on threads</text>
+      <rect x="142" y="10" width="140" height="60" rx="10" fill="#dcf4f1"/><text class="h" x="212" y="30" text-anchor="middle" font-size="10.5" fill="#0b6f69">AppData loads</text><text class="p" x="212" y="45" text-anchor="middle" font-size="7.2" fill="#0b6f69">appData.gd loadAll()</text><text x="212" y="59" text-anchor="middle" fill="#3a4a48">3 JSONs + 4 maps on threads</text>
       <path d="M282 40 H302" stroke="#6b6f78" stroke-width="1.5" marker-end="url(#arrS)"/>
       <rect x="304" y="10" width="120" height="60" rx="10" fill="#e0e9ff"/><text class="h" x="364" y="30" text-anchor="middle" font-size="10.5" fill="#1d48b5">Storage loads</text><text class="p" x="364" y="45" text-anchor="middle" font-size="7.2" fill="#1d48b5">storage.gd loadAll()</text><text x="364" y="59" text-anchor="middle" fill="#3a4a75">5 saves, gaps filled in</text>
       <path d="M424 40 H444" stroke="#6b6f78" stroke-width="1.5" marker-end="url(#arrS)"/>
-      <rect x="446" y="10" width="110" height="60" rx="10" fill="#ffe9df"/><text class="h" x="501" y="30" text-anchor="middle" font-size="10.5" fill="#b5420f">AppTheme</text><text class="p" x="501" y="45" text-anchor="middle" font-size="7.2" fill="#b5420f">appTheme.gd apply()</text><text x="501" y="59" text-anchor="middle" fill="#6b3a24">your theme's look</text>
+      <rect x="446" y="10" width="110" height="60" rx="10" fill="#ffe9df"/><text class="h" x="501" y="30" text-anchor="middle" font-size="10.5" fill="#b5420f">AppTheme</text><text class="p" x="501" y="45" text-anchor="middle" font-size="7.2" fill="#b5420f">appTheme.gd apply()</text><text x="501" y="59" text-anchor="middle" fill="#6b3a24">your style + colours</text>
       <path d="M556 40 H576" stroke="#6b6f78" stroke-width="1.5" marker-end="url(#arrS)"/>
       <rect x="578" y="0" width="142" height="36" rx="10" fill="#fff" stroke="#b9bcc3" stroke-dasharray="4 3"/><text x="649" y="16" text-anchor="middle" font-weight="600">not set up yet?</text><text x="649" y="29" text-anchor="middle" fill="#6b6f78">main.gd startUp() → ProfileSetup</text>
       <rect x="578" y="44" width="142" height="36" rx="10" fill="#ff6a2b"/><text x="649" y="60" text-anchor="middle" font-weight="600" fill="#fff">otherwise → Week</text><text x="649" y="73" text-anchor="middle" fill="#fff">+ Workout if one is running</text>
-      <text x="0" y="104" fill="#6b6f78">Limit: under 500 ms from the main scene to the first drawn frame. <tspan class="p" font-size="7.6">_onFirstFrame()</tspan> in main.gd prints the time, and the build check reads it (page 8).</text>
+      <text x="0" y="104" fill="#6b6f78">Limit: under 500 ms from the main scene to the first drawn frame. <tspan class="p" font-size="7.6">_onFirstFrame()</tspan> in main.gd prints the time, and the build check reads it (page 13).</text>
     </g>
   </svg>
   <div class="foot"><span>hotMuscles · architecture guide</span><span>3</span></div>
@@ -432,7 +455,7 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
     <rect x="420" y="216" width="150" height="64" rx="14" fill="#fff" stroke="#ff6a2b" stroke-width="1.5"/>
     <text class="h" x="495" y="238" text-anchor="middle" font-size="12">Settings</text>
     <text class="p" x="495" y="253" text-anchor="middle" font-size="7" fill="#9a4a22">settingsScreen.gd</text>
-    <text x="495" y="268" text-anchor="middle" font-size="8" fill="#6b6f78">looks · defaults · backup</text>
+    <text x="495" y="268" text-anchor="middle" font-size="8" fill="#6b6f78">style · colours · targets · backup</text>
 
     <rect x="620" y="68" width="100" height="64" rx="14" fill="#fff" stroke="#ff6a2b" stroke-width="1.5"/>
     <text class="h" x="670" y="90" text-anchor="middle" font-size="12">Picker</text>
@@ -459,12 +482,19 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
     <text x="716" y="294" font-size="8" fill="#1d48b5" text-anchor="end">"Find exercises" → <tspan class="p" font-size="7.4">openPicker(target, regionId)</tspan>, filtered to that muscle</text>
     <path d="M495 216 C460 205 140 220 60 182" stroke="#b9bcc3" stroke-width="1.3" fill="none" marker-end="url(#arr3)" stroke-dasharray="4 3"/>
     <text x="72" y="202" font-size="8" fill="#6b6f78">"Run setup again"</text><text class="p" x="72" y="214" font-size="7.2" fill="#6b6f78">openProfileSetup()</text>
+
+    <rect x="0" y="236" width="170" height="56" rx="14" fill="#fff" stroke="#ff6a2b" stroke-width="1.5"/>
+    <text class="h" x="85" y="254" text-anchor="middle" font-size="11">Targets → Target editor</text>
+    <text class="p" x="85" y="268" text-anchor="middle" font-size="6.6" fill="#9a4a22">targetsScreen.gd · targetEditor.gd</text>
+    <text x="85" y="283" text-anchor="middle" font-size="7.6" fill="#6b6f78">from Week (Balance tab) or Settings</text>
+    <path d="M196 192 C185 210 175 222 160 234" stroke="#6b6f78" stroke-width="1.6" fill="none" marker-end="url(#arr3)"/>
+    <text class="p" x="186" y="226" font-size="7.2" fill="#6b6f78">openTargets()</text>
   </svg>
 
   <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 9px; margin-top: 8px;">
     <div style="width:128px; margin:0 auto;"><div class="phone"><img src="img/screenWeek.png" alt=""></div><div class="caption">Week</div></div>
     <div style="width:128px; margin:0 auto;"><div class="phone"><img src="img/screenWorkout.png" alt=""></div><div class="caption">Workout</div></div>
-    <div style="width:128px; margin:0 auto;"><div class="phone"><img src="img/screenPicker.png" alt=""></div><div class="caption">Picker (rear delt)</div></div>
+    <div style="width:128px; margin:0 auto;"><div class="phone"><img src="img/screenPicker.png" alt=""></div><div class="caption">Picker</div></div>
     <div style="width:128px; margin:0 auto;"><div class="phone"><img src="img/screenRegion.png" alt=""></div><div class="caption">Region sheet</div></div>
   </div>
 
@@ -472,9 +502,9 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
   <div class="compact" style="display:grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; font-size: 8.2pt; line-height:1.33;">
     <div class="card" style="padding:7px 8px;"><b style="color:var(--accent);">1 · Start workout</b><br><code>startWorkout()</code> stamps a start time; Workout slides in.</div>
     <div class="card" style="padding:7px 8px;"><b style="color:var(--accent);">2 · Add exercises</b><br>The picker opens. Ticked ones show dashed on the body. Nothing saved yet.</div>
-    <div class="card" style="padding:7px 8px;"><b style="color:var(--accent);">3 · Add</b><br><code>addEntries()</code> saves them in one write, each at 0 sets.</div>
-    <div class="card" style="padding:7px 8px;"><b style="color:var(--accent);">4 · − / + sets</b><br><code>setEntrySets()</code> saves on every tap; muscles light up.</div>
-    <div class="card" style="padding:7px 8px;"><b style="color:var(--accent);">5 · Finish</b><br><code>finishWorkout()</code> drops 0-set rows, stamps the end time.</div>
+    <div class="card" style="padding:7px 8px;"><b style="color:var(--accent);">3 · Add</b><br><code>addEntries()</code> saves them in one write, each made by <code>newEntry()</code> (1 set, or 0 by the setting).</div>
+    <div class="card" style="padding:7px 8px;"><b style="color:var(--accent);">4 · − / + sets</b><br><code>setEntrySets()</code> saves on every tap; muscles light up. Cardio: <code>setEntryMinutes()</code>.</div>
+    <div class="card" style="padding:7px 8px;"><b style="color:var(--accent);">5 · Finish</b><br><code>finishWorkout()</code> drops rows with no sets and no minutes, stamps the end time.</div>
     <div class="card" style="padding:7px 8px;"><b style="color:var(--accent);">6 · Back on Week</b><br>Week's <code>_onStorage<wbr>Changed()</code> redraws the heat; a toast confirms.</div>
   </div>
 
@@ -502,7 +532,8 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
       <div class="field"><b>name</b><span>text</span></div>
       <div class="field"><b>body</b><span>male | female</span></div>
       <div class="field"><b>gradient</b><span>infrared | scarlet | ember</span></div>
-      <div class="field"><b>theme</b><span>ember | ocean | forest | light</span></div>
+      <div class="field"><b>theme</b><span>palette id: ember … sakura (10)</span></div>
+      <div class="field"><b>style</b><span>modern | frutiger</span></div>
       <div class="field"><b>setupDone</b><span>yes / no</span></div>
     </div></div>
     <div class="dataCard"><div class="top" style="background:#2f6dff;">settings <small>settings.json</small></div><div class="body">
@@ -512,6 +543,12 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
       <div class="field"><b>defaultView</b><span>front | back | both</span></div>
       <div class="field"><b>rangeWeek</b><span>N for the week · 12</span></div>
       <div class="field"><b>rangeWorkout</b><span>N for a workout · 5</span></div>
+      <div class="field"><b>workoutShowWeek</b><span>"+ Week" chip</span></div>
+      <div class="field"><b>homePeriod</b><span>day … year</span></div>
+      <div class="field"><b>activeTargets</b><span>presets on</span></div>
+      <div class="field"><b>customTargets</b><span>your own presets</span></div>
+      <div class="field"><b>overlayTargets</b><span>Targets chip</span></div>
+      <div class="field"><b>overlayCardio</b><span>Cardio chip</span></div>
     </div></div>
     <div class="dataCard"><div class="top" style="background:#2f6dff;">prefs <small>exercisePrefs.json</small></div><div class="body">
       <p style="font-size:8.5pt; color:var(--muted); margin:0 0 3px;">per exercise id · defaults: <span class="path">defaultPref()</span></p>
@@ -519,10 +556,11 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
       <div class="field"><b>hidden</b><span>hide from lists</span></div>
       <div class="field"><b>grips</b><span>remembered checkbox</span></div>
       <div class="field"><b>lastUsed</b><span>time, for sorting</span></div>
+      <div class="field"><b>effort</b><span>last cardio effort</span></div>
     </div></div>
   </div>
 
-  <h3 style="margin:10px 0 4px;">workouts.json: a workout is a list of entries, an entry is one exercise and its sets</h3>
+  <h3 style="margin:10px 0 4px;">workouts.json: a workout is a list of entries, one per exercise (its sets or minutes)</h3>
   <svg viewBox="0 0 720 210" width="100%">
     <rect x="0" y="0" width="720" height="210" rx="14" fill="#e0e9ff"/>
     <text class="h" x="14" y="22" font-size="12" fill="#1d48b5">workouts.json</text>
@@ -537,8 +575,9 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
       <rect x="26" y="108" width="416" height="36" rx="8" fill="#f4f7ff" stroke="#c7d6ff"/>
       <text x="38" y="124" font-weight="600">entry</text><text x="80" y="124" font-family="Consolas" font-size="8.5">exerciseId "Bent_Over_Barbell_Row"</text><text x="290" y="124" font-family="Consolas" font-size="8.5">sets 4</text><text x="350" y="124" font-family="Consolas" font-size="8.5">grips true</text>
       <text x="38" y="137" font-size="7.5" fill="#6b6f78">grips ticked = straps used, so no forearm heat from this one</text>
-      <rect x="26" y="150" width="416" height="36" rx="8" fill="#f4f7ff" stroke="#c7d6ff" stroke-dasharray="4 3"/>
-      <text x="234" y="172" text-anchor="middle" fill="#6b6f78">… more entries</text>
+      <rect x="26" y="150" width="416" height="36" rx="8" fill="#f4f7ff" stroke="#c7d6ff"/>
+      <text x="38" y="166" font-weight="600">entry</text><text x="80" y="166" font-family="Consolas" font-size="8.5">exerciseId "Running_Outdoor"</text><text x="250" y="166" font-family="Consolas" font-size="8.5">minutes 30</text><text x="330" y="166" font-family="Consolas" font-size="8.5">effort "hard"</text>
+      <text x="38" y="179" font-size="7.5" fill="#6b6f78">cardio: minutes + effort (easy | hard | veryHard) instead of sets · no sets and no minutes = planned</text>
     </g>
     <rect x="470" y="34" width="236" height="76" rx="12" fill="#fff" stroke="#2f6dff"/>
     <text class="h" x="482" y="54" font-size="11">templates.json</text>
@@ -552,28 +591,66 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
     <text class="p" x="482" y="188" font-size="7.4" fill="#ffb08a">storage.gd exportBackup()</text>
   </svg>
 
-  <h3 style="margin:8px 0 2px;">Which screen writes which file</h3>
-  <table class="compact" style="font-size:8.2pt; line-height:1.3;">
-    <tr><th style="width:19%;">File</th><th style="width:37%;">Written by</th><th>Storage functions called</th></tr>
-    <tr><td><code>profile.json</code></td><td>profileSetup.gd, settingsScreen.gd</td><td><code>setProfileValues()</code> · <code>setProfile()</code></td></tr>
-    <tr><td><code>settings.json</code></td><td>settingsScreen.gd, the 0–N slider in <code>app/ui/bodyCard.gd</code></td><td><code>setSetting()</code></td></tr>
-    <tr><td><code>exercisePrefs.json</code></td><td>pickerScreen.gd (star, hide), workoutScreen.gd (grips)</td><td><code>setFavourite()</code> · <code>setHidden()</code> · <code>setGripsMemory()</code></td></tr>
-    <tr><td><code>workouts.json</code></td><td>weekScreen.gd, workoutScreen.gd, pickerScreen.gd</td><td><code>startWorkout()</code> · <code>addEntries()</code> · <code>setEntrySets()</code> · <code>finishWorkout()</code> · <code>deleteWorkout()</code> · <code>updateWorkout()</code></td></tr>
-    <tr><td><code>templates.json</code></td><td>week + workout (save), picker (rename, delete)</td><td><code>saveTemplate()</code> · <code>renameTemplate()</code> · <code>deleteTemplate()</code></td></tr>
-  </table>
-
-  <div class="grid2" style="margin-top: 8px; font-size:9pt;">
+  <div class="grid2" style="margin-top: 10px; font-size:9pt;">
     <div class="note blue compact" style="margin:0; font-size:8.8pt;"><b>Crash-safe writing:</b> <code>_writeSection()</code> writes <code>workouts.json.tmp</code> first and swaps it in only once it is complete, so a power cut mid-save leaves the old file whole. A file that can't be read is renamed <code>workouts.json.bad</code> by <code>_readSection()</code> and only that section starts fresh.</div>
     <div class="note compact" style="margin:0; font-size:8.8pt;"><b>Backup import:</b> <code>isBackup()</code> checks every section has the right type. <code>askImport()</code> in settingsScreen.gd shows the workout and template counts and asks you to confirm. Then <code>exportBackup()</code> saves your current data first and <code>importBackupText()</code> replaces everything. All or nothing.</div>
   </div>
   <div class="foot"><span>hotMuscles · architecture guide</span><span>5</span></div>
 </section>
 
+<!-- ============================== 5b. SAVES: WHO WRITES WHAT ============================== -->
+<section class="page">
+  <div class="kicker">4 · Saved data</div>
+  <h2>Saved data: who writes what, and keeping old saves</h2>
+  <p class="lead">Screens never touch the files: they call Storage functions, each ending in <code>save()</code> (page 3). Below: who calls what, how a file from an older version is brought up to date, and how every delete can be undone.</p>
+
+  <h3 style="margin:0 0 4px;">Which screen writes which file</h3>
+  <table class="compact" style="font-size:8.2pt; line-height:1.3;">
+    <tr><th style="width:19%;">File</th><th style="width:37%;">Written by</th><th>Storage functions called</th></tr>
+    <tr><td><code>profile.json</code></td><td>profileSetup.gd, settingsScreen.gd (name, body, gradient, style, palette)</td><td><code>setProfileValues()</code> · <code>setProfile()</code></td></tr>
+    <tr><td><code>settings.json</code></td><td>settingsScreen.gd, the 0–N slider in <code>app/ui/bodyCard.gd</code>, weekScreen.gd (period, overlays), workoutScreen.gd (+ Week), <code>app/core/targets.gd</code> (presets on, your own)</td><td><code>setSetting()</code></td></tr>
+    <tr><td><code>exercisePrefs.json</code></td><td>pickerScreen.gd (star, hide), workoutScreen.gd (grips, cardio effort)</td><td><code>setFavourite()</code> · <code>setHidden()</code> · <code>setGripsMemory()</code> · <code>setEffortMemory()</code></td></tr>
+    <tr><td><code>workouts.json</code></td><td>weekScreen.gd, workoutScreen.gd, pickerScreen.gd</td><td><code>startWorkout()</code> · <code>addEntries()</code> · <code>setEntrySets()</code> · <code>setEntryMinutes()</code> · <code>setEntryEffort()</code> · <code>finishWorkout()</code> · <code>deleteWorkout()</code> · <code>updateWorkout()</code></td></tr>
+    <tr><td><code>templates.json</code></td><td>week + workout (save), picker (rename, delete)</td><td><code>saveTemplate()</code> · <code>renameTemplate()</code> · <code>deleteTemplate()</code></td></tr>
+  </table>
+
+  <div class="grid2" style="margin-top: 10px; align-items: start;">
+    <div class="card compact">
+      <h3 style="font-size:11pt;">Old saves, new fields</h3>
+      <p style="font-size:8.5pt; margin:0 0 4px;"><code>loadAll()</code> runs each file through <code>_mergeDefaults()</code>: stored values stay, keys new in this version come from the defaults. An older settings.json gains period "week", no presets and both overlays off, so nothing changes until you pick.</p>
+      <p style="font-size:8.5pt; margin:0;">Then <code>_cleanAll()</code> fixes types: <code>_cleanSettings()</code> keeps the ranges in 1–20, an unknown period becomes "week", the old <code>colourMode</code> key goes; <code>_cleanCustomTargets()</code> keeps offsets whole, −12..+10; <code>_cleanActiveTargets()</code> keeps each id once; <code>_cleanEntry()</code> keeps minutes in 0–600, on cardio entries only. <code>setSetting()</code> cleans on every change too.</p>
+    </div>
+    <div>
+      <div class="dataCard"><div class="top" style="background:#2f6dff;">one of your own presets <small>settings.json customTargets</small></div><div class="body">
+        <p style="font-size:8.5pt; color:var(--muted); margin:0 0 3px;">made by <span class="path">Targets.saveCustom()</span>, same shape as a researched one (page 8)</p>
+        <div class="field"><b>id</b><span>"c&lt;time&gt;_&lt;random&gt;"</span></div>
+        <div class="field"><b>name</b><span>up to 28 letters (<code>nameMaxLength</code>)</span></div>
+        <div class="field"><b>offsets</b><span>regionId → sets, −12..+10</span></div>
+        <div class="field"><b>cardio</b><span>easyCardio · hardCardio minutes</span></div>
+      </div></div>
+      <div class="note blue compact" style="margin: 8px 0 0; font-size:8.5pt;"><b>activeTargets</b> lists the ids that are on, in the order you switched them on. An id that no longer exists (a deleted preset of your own) is skipped by <code>Targets.activeIds()</code>, never an error.</div>
+    </div>
+  </div>
+
+  <h3 style="margin-top: 10px;">Undo instead of "are you sure?"</h3>
+  <p class="compact" style="font-size:8.6pt; margin:0 0 4px;">Each removing function returns what it removed; the toast's Undo button (<code>showToast()</code> in main.gd) hands it back.</p>
+  <table class="compact" style="font-size:8.2pt; line-height:1.3;">
+    <tr><th style="width:30%;">You…</th><th style="width:22%;">Screen</th><th>Removed by → put back by</th></tr>
+    <tr><td>delete a finished workout</td><td>weekScreen.gd</td><td><code>Storage.deleteWorkout()</code> → <code>restoreWorkout()</code></td></tr>
+    <tr><td>remove an exercise from a workout</td><td>workoutScreen.gd</td><td><code>Storage.removeEntry()</code> → <code>insertEntry()</code> at the same place</td></tr>
+    <tr><td>discard the running workout</td><td>workoutScreen.gd</td><td><code>Storage.discardWorkout()</code> → <code>resumeWorkout()</code></td></tr>
+    <tr><td>delete a template</td><td>pickerScreen.gd</td><td><code>Storage.deleteTemplate()</code> → <code>restoreTemplate()</code></td></tr>
+    <tr><td>hide an exercise</td><td>pickerScreen.gd</td><td><code>setHidden(id, true)</code> → <code>setHidden(id, false)</code></td></tr>
+    <tr><td>delete a preset of your own</td><td>targetsScreen.gd, targetEditor.gd</td><td><code>Targets.deleteCustom()</code> → <code>restoreCustom()</code>, switched on again if it was on</td></tr>
+  </table>
+  <div class="foot"><span>hotMuscles · architecture guide</span><span>6</span></div>
+</section>
+
 <!-- ============================== 6. HEAT CALCULATION ============================== -->
 <section class="page">
   <div class="kicker">5 · Heat calculation</div>
   <h2>Heat calculation: from exercises to muscle colours</h2>
-  <p class="lead">Each exercise in <code>appData/exercises.json</code> lists the muscle regions it works and how much of a set counts for each (its <b>shares</b>). <code>HeatEngine.weekHeat()</code> in <code>app/core/heatEngine.gd</code> multiplies your sets by the shares and adds them up over the last 7 days. <code>HeatGradients.amountColour()</code> turns each region's total into a colour.</p>
+  <p class="lead">Each exercise in <code>appData/exercises.json</code> lists the regions it works and how much of a set counts for each (its <b>shares</b>). <code>HeatEngine.effectiveSets()</code> in <code>app/core/heatEngine.gd</code> multiplies your sets by the shares and adds them up over the period on show (page 10). <code>HeatGradients.amountColour()</code> turns each total into a colour.</p>
 
   <div class="grid2" style="grid-template-columns: 1fr 1fr; align-items: start;">
     <div class="dataCard"><div class="top" style="background:#12a39a;">exercise record <small>appData/exercises.json</small></div><div class="body">
@@ -595,9 +672,9 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
 
     <div class="card">
       <h3>Where the shares come from</h3>
-      <p class="compact" style="font-size:8.8pt; margin-bottom:4px;"><b>Automatic (788):</b> <code>tools/appData/buildAppData.py</code> reads the coarse tags in <code>data/freeExerciseDb/dist/exercises.json</code> (primary 1.0, secondary 0.5) and splits each group over our regions with its <code>defaultSpread</code> table (chest → lowerChest 0.7, upperChest 0.3).</p>
-      <p class="compact" style="font-size:8.8pt; margin-bottom:4px;"><b>Curated (96):</b> typed by hand in <code>tools/appData/curatedExercises.json</code>. <b>Stretching, cardio (137):</b> no heat.</p>
-      <p class="compact" style="font-size:8.8pt; margin:0;"><b>Grips:</b> 106 exercises have <code>forearmKind</code> "grip": <code>HeatEngine.entryHeat()</code> skips their forearm share when you tick grips. 28 are "direct" and always count.</p>
+      <p class="compact" style="font-size:8.8pt; margin-bottom:4px;"><b>Hand-tuned (96):</b> typed in <code>tools/appData/curatedExercises.json</code>. <b>Researched (682):</b> <code>researchedExercises.json</code>, each row with a confidence; the 97 low ones show "rough data".</p>
+      <p class="compact" style="font-size:8.8pt; margin-bottom:4px;"><b>Automatic:</b> only for an exercise no list covers (none today): <code>buildAppData.py</code> splits the database's coarse tags (primary 1.0, secondary 0.5) with its <code>defaultSpread</code> table. <b>Stretching, cardio (149):</b> no heat; cardio counts minutes (page 9).</p>
+      <p class="compact" style="font-size:8.8pt; margin:0;"><b>Grips:</b> 201 exercises have <code>forearmKind</code> "grip": <code>HeatEngine.entryHeat()</code> skips their forearm share when you tick grips. 35 are "direct" and always count.</p>
     </div>
   </div>
 
@@ -605,7 +682,7 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
     <div>
       <div class="card" style="background:#1b1d22; color:#ece8e1; border:0; text-align:center; padding: 12px;">
         <div style="font-family:Bahnschrift; font-size:17pt; letter-spacing:0.02em;">heat[muscle] = Σ  sets × share</div>
-        <div style="font-size:8.6pt; color:#a3a7b0; margin-top:4px;"><span class="mono" style="color:#ffb08a;">weekHeat()</span> = <span class="mono" style="color:#ffb08a;">workoutsInWindow()</span> → <span class="mono" style="color:#ffb08a;">effectiveSets()</span> → <span class="mono" style="color:#ffb08a;">entryHeat()</span> per entry</div>
+        <div style="font-size:8.6pt; color:#a3a7b0; margin-top:4px;"><span class="mono" style="color:#ffb08a;">periodWorkouts()</span> → <span class="mono" style="color:#ffb08a;">effectiveSets()</span> → <span class="mono" style="color:#ffb08a;">entryHeat()</span> per entry</div>
       </div>
 
       <h3 style="margin-top:8px;">Worked example: rear delt (same numbers as the screenshot →)</h3>
@@ -638,7 +715,7 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
         <text x="0" y="52" font-size="8.5" fill="#6b6f78">older: ignored</text>
         <text x="214" y="52" text-anchor="end" font-size="8.5">now</text>
       </svg>
-      <p class="compact" style="font-size:8.6pt; margin:3px 0 0;"><code>workoutsInWindow()</code> keeps the 7 × 24 h before now, not the calendar week. Older workouts drop out.</p>
+      <p class="compact" style="font-size:8.6pt; margin:3px 0 0;"><code>workoutsInWindow()</code> keeps the 7 × 24 h before now, not the calendar week. Older workouts drop out. Day, Month, Year: page 10.</p>
     </div>
     <div class="card">
       <h3 style="font-size:11pt;">Heat number to colour</h3>
@@ -663,13 +740,173 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
     </div>
   </div>
 
-  <p class="compact" style="font-size:8.4pt; color:var(--muted); margin:6px 0 0;"><b>30 regions in 7 groups</b> (<code>regions</code>, <code>groups</code> in appData/muscles.json): Back 6 · Shoulders 4 · Chest 3 · Arms 3 · Core 4 · Legs 9 · Neck 1. The picker ranks by <code>HeatEngine.recommend()</code>: share + 0.5 × focus, plus small bonuses for favourites and used exercises.</p>
-  <div class="foot"><span>hotMuscles · architecture guide</span><span>6</span></div>
+  <p class="compact" style="font-size:8.4pt; color:var(--muted); margin:6px 0 0;"><b>30 regions in 7 groups</b> (<code>regions</code>, <code>groups</code> in appData/muscles.json): Back 6 · Shoulders 4 · Chest 3 · Arms 3 · Core 4 · Legs 9 · Neck 1. The picker ranks by <code>HeatEngine.recommend()</code>: share (summed over the picked muscles) + 0.5 × focus, plus small bonuses.</p>
+  <div class="foot"><span>hotMuscles · architecture guide</span><span>7</span></div>
 </section>
 
-<!-- ============================== 7. RENDERING ============================== -->
+<!-- ============================== 7. TARGETS ============================== -->
 <section class="page">
-  <div class="kicker">6 · Body rendering</div>
+  <div class="kicker">6 · Targets</div>
+  <h2>Targets: a weekly goal per muscle, from presets</h2>
+  <p class="lead">A target preset is a researched goal for a sport or a look. Per muscle it says how many sets a week to add to, or take off, your <b>baseline</b> (the home slider's N, 12 by default), plus weekly cardio minutes and key exercises. Switch on any mix: <code>Targets</code> in <code>app/core/targets.gd</code> turns them into one target per muscle.</p>
+
+  <div style="display:grid; grid-template-columns: 1fr 32mm 32mm; gap: 10px; align-items: start;">
+    <div>
+      <div class="dataCard"><div class="top" style="background:#12a39a;">target preset <small>appData/targets.json</small></div><div class="body">
+        <div class="field"><b>id · name</b><span>"basketball" · Basketball</span></div>
+        <div class="field"><b>kind · summary</b><span>sport | physique · one line</span></div>
+        <div class="field"><b>offsets</b><span>all 30 muscles, −12..+10 sets</span></div>
+        <div class="field"><b>cardio</b><span>easyCardio · hardCardio minutes a week</span></div>
+        <div class="field"><b>keyExercises</b><span>exercise ids, tagged in the picker</span></div>
+      </div></div>
+      <div class="card compact" style="margin-top: 8px;">
+        <h3 style="font-size:11pt;">Where the presets come from</h3>
+        <p style="font-size:8.5pt; margin:0 0 3px;"><b>11 researched</b> (8 sports, 3 physiques) in <code>tools/appData/targetPresets.json</code>, sources in <code>data/sources.md</code>. <code>buildAppData.py</code> checks them and writes <code>appData/targets.json</code>; <code>AppData.presets</code> holds them.</p>
+        <p style="font-size:8.5pt; margin:0;"><b>Your own:</b> settings.json <code>customTargets</code>, same shape; <code>Targets.allPresets()</code> lists both, <code>activeTargets</code> the ids that are on.</p>
+      </div>
+    </div>
+    <div><div class="phone"><img src="img/screenTargets.png" alt=""></div><div class="caption">Targets screen</div></div>
+    <div><div class="phone"><img src="img/screenTargetEditor.png" alt=""></div><div class="caption">Target editor</div></div>
+  </div>
+
+  <div class="card" style="background:#1b1d22; color:#ece8e1; border:0; text-align:center; padding: 10px 12px; margin-top: 10px;">
+    <div style="font-family:Bahnschrift; font-size:14pt; letter-spacing:0.02em;">target[muscle] = highest of  max(0, baseline + offset)  over the presets on</div>
+    <div style="font-size:8.4pt; color:#a3a7b0; margin-top:3px;"><span class="mono" style="color:#ffb08a;">Targets.regionTargets()</span> → <span class="mono" style="color:#ffb08a;">HeatEngine.regionTargets(activePresets(), baseline())</span> · baseline = <span class="mono" style="color:#ffb08a;">rangeWeek</span>: the slider moves every target</div>
+  </div>
+
+  <div style="display:grid; grid-template-columns: 1.15fr 1fr; gap: 10px; margin-top: 8px; align-items: start;">
+    <div>
+      <h3 style="font-size:11pt;">Worked example: Basketball + mew2 on, baseline 12</h3>
+      <table class="compact" style="font-size:8.6pt; line-height:1.3;">
+        <tr><th>Muscle</th><th>Basketball</th><th>mew2</th><th>Target</th></tr>
+        <tr><td>Outer quad</td><td>+3 → 15</td><td>+10 → 22</td><td><b>22</b></td></tr>
+        <tr><td>Upper chest</td><td>−3 → 9</td><td>−8 → 4</td><td><b>9</b></td></tr>
+        <tr><td>Biceps</td><td>−6 → 6</td><td>−9 → 3</td><td><b>6</b></td></tr>
+        <tr><td>Easy cardio</td><td>120 min</td><td>120 min</td><td><b>120</b> (default 90)</td></tr>
+        <tr><td>Hard cardio</td><td>220 min</td><td>75 min</td><td><b>220</b> (default 30)</td></tr>
+      </table>
+      <p class="compact" style="font-size:8.4pt; color:var(--muted); margin:4px 0 0;">Same numbers as the Targets screenshot: "biggest 22 sets a week · cardio 120 easy + 220 hard".</p>
+    </div>
+    <div class="note teal compact" style="margin:0; font-size:8.6pt;"><b>Cardio targets:</b> <code>Targets.cardioTargets()</code> → <code>HeatEngine.cardioTargets()</code>: per light, the default or the highest preset, whichever is more. The default (<code>cardioDefaultTarget</code>) is 90 easy + 30 hard minutes, with hard counting double exactly the WHO minimum of 150 (page 9). With nothing on there are no muscle targets, but the cardio default still applies.</div>
+  </div>
+
+  <div class="grid3" style="margin-top: 10px;">
+    <div class="card compact">
+      <h3 style="font-size:11pt;">Targets screen</h3>
+      <p style="font-size:8.3pt; margin:0;"><code>targetsScreen.gd</code>: Sports, Physique, Yours. A tap: <code>toggle()</code> → <code>Targets.toggle()</code> saves <code>activeTargets</code>. Hold a row for <code>openMenu()</code>: copy a preset into your own, edit or delete yours (<code>deletePreset()</code>, undo). The body shows the combined targets (<code>_refreshPreview()</code>).</p>
+    </div>
+    <div class="card compact">
+      <h3 style="font-size:11pt;">Target editor</h3>
+      <p style="font-size:8.3pt; margin:0;"><code>targetEditor.gd</code>, via main.gd <code>openTargetEditor()</code>. A stepper per muscle (<code>changeOffset()</code>, −12..+10) and easy / hard minutes (<code>changeCardio()</code>). <code>save()</code> → <code>Targets.saveCustom()</code>, a new one switched on; <code>deleteTarget()</code> → <code>Targets.deleteCustom()</code>, undo <code>restoreCustom()</code>.</p>
+    </div>
+    <div class="card compact">
+      <h3 style="font-size:11pt;">In the exercise picker</h3>
+      <p style="font-size:8.3pt; margin:0;"><b>"Below target" chip:</b> <code>setOrder("target")</code> weights muscles by <code>HeatEngine.belowTarget()</code> (last 7 days + this workout); <code>weightedFirst()</code> puts the furthest below first. <b>Tags:</b> <code>Targets.tagsFor()</code> names each switched-on preset that lists the exercise as key.</p>
+    </div>
+  </div>
+  <div class="foot"><span>hotMuscles · architecture guide</span><span>8</span></div>
+</section>
+
+<!-- ============================== 8. CARDIO ============================== -->
+<section class="page">
+  <div class="kicker">7 · Cardio</div>
+  <h2>Cardio: minutes and effort instead of sets</h2>
+  <p class="lead">A cardio exercise is logged as minutes and how hard it felt, never as sets, and gives no muscle heat. Its minutes light one of two "cardio lights" instead: blue for easy cardio, red for hard. The model is researched (<code>tools/appData/cardio.json</code>, sources in <code>data/sources.md</code>) and ships inside <code>appData/targets.json</code> next to the presets.</p>
+
+  <div style="display:grid; grid-template-columns: 1fr 32mm; gap: 12px; align-items: start;">
+    <div>
+      <h3>Logging a cardio row: <span class="path" style="font-size:9pt;">app/screens/workoutScreen.gd</span></h3>
+      <p class="compact" style="font-size:8.8pt;">The row swaps the sets stepper for minutes (<code>changeMinutes()</code>, steps of <code>minuteStep</code> = 5) and adds three effort chips with a talk-test hint under them (<code>setEffort()</code>). <code>Storage.newEntry()</code> starts it at 20 minutes (or 0, by the "new exercises start at" setting) and at the effort you picked last time for that exercise (<code>setEffortMemory()</code>), else its default from cardio.json. Each change saves through <code>Storage.setEntryMinutes()</code> or <code>setEntryEffort()</code>.</p>
+      <table class="compact" style="font-size:8.4pt; line-height:1.3;">
+        <tr><th>Effort</th><th>Talk test (the hint)</th><th>Zone</th><th>Lights</th></tr>
+        <tr><td><b>Easy</b></td><td>you could chat in full sentences</td><td>z1</td><td><span class="tag" style="background:#dbe8ff; color:#1d48b5;">blue · easy cardio</span></td></tr>
+        <tr><td><b>Hard</b></td><td>short phrases only</td><td>z2</td><td><span class="tag" style="background:#ffdce1; color:#b5203a;">red · hard cardio</span></td></tr>
+        <tr><td><b>Very hard</b></td><td>a word or two at most</td><td>z3</td><td><span class="tag" style="background:#ffdce1; color:#b5203a;">red · hard cardio</span></td></tr>
+      </table>
+      <p class="compact" style="font-size:8.6pt; margin:6px 0 0;">The efforts are <code>AppData.cardioEfforts</code> / <code>effortById</code>, the lights <code>AppData.cardioLights</code> (each says how much of a minute in each zone lights it). 26 exercises are cardio: 14 from the database, each given a default effort, and 12 added (outdoor run, brisk walk, hike, HIIT circuit…). <code>HeatEngine.isLogged()</code>: an entry counts when it has sets <i>or</i> minutes; 0 of both is planned and dropped on finish.</p>
+    </div>
+    <div><div class="phone"><img src="img/screenWorkoutCardio.png" alt=""></div><div class="caption">A cardio row (Hard)</div></div>
+  </div>
+
+  <h3 style="margin-top: 10px;">From logged minutes to the vessels on the body</h3>
+  <svg viewBox="0 0 720 72" width="100%">
+    <defs><marker id="arrC" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#6b6f78"/></marker></defs>
+    <g font-size="8.5">
+      <rect x="0" y="6" width="128" height="62" rx="10" fill="#e0e9ff"/><text class="h" x="64" y="26" text-anchor="middle" font-size="10.5" fill="#1d48b5">entries</text><text x="64" y="42" text-anchor="middle" fill="#3a4a75">minutes + effort of</text><text x="64" y="55" text-anchor="middle" fill="#3a4a75">the period's workouts</text>
+      <path d="M128 37 H146" stroke="#6b6f78" stroke-width="1.5" marker-end="url(#arrC)"/>
+      <rect x="148" y="6" width="134" height="62" rx="10" fill="#fff" stroke="#d8d3ca"/><text class="h" x="215" y="24" text-anchor="middle" font-size="10.5">minutes per light</text><text class="p" x="215" y="39" text-anchor="middle" font-size="7" fill="#9a4a22">HeatEngine.cardioMinutes()</text><text x="215" y="55" text-anchor="middle" fill="#6b6f78">effort → zone → light</text>
+      <path d="M282 37 H300" stroke="#6b6f78" stroke-width="1.5" marker-end="url(#arrC)"/>
+      <rect x="302" y="6" width="134" height="62" rx="10" fill="#fff" stroke="#d8d3ca"/><text class="h" x="369" y="24" text-anchor="middle" font-size="10.5">÷ weekly target</text><text class="p" x="369" y="39" text-anchor="middle" font-size="7" fill="#9a4a22">weekScreen.gd cardioLevels()</text><text x="369" y="55" text-anchor="middle" fill="#6b6f78">0..1 per colour, capped</text>
+      <path d="M436 37 H454" stroke="#6b6f78" stroke-width="1.5" marker-end="url(#arrC)"/>
+      <rect x="456" y="6" width="128" height="62" rx="10" fill="#ffe9df"/><text class="h" x="520" y="24" text-anchor="middle" font-size="10.5" fill="#b5420f">BodyView</text><text class="p" x="520" y="39" text-anchor="middle" font-size="7" fill="#b5420f">setVessels(levels)</text><text x="520" y="55" text-anchor="middle" fill="#6b3a24">figure fades: dim</text>
+      <path d="M584 37 H602" stroke="#6b6f78" stroke-width="1.5" marker-end="url(#arrC)"/>
+      <rect x="604" y="6" width="116" height="62" rx="10" fill="#1b1d22"/><text class="h" x="662" y="24" text-anchor="middle" font-size="10.5" fill="#fff">VesselLayer</text><text class="p" x="662" y="39" text-anchor="middle" font-size="7" fill="#ffb08a">vesselLayer.gd</text><text x="662" y="55" text-anchor="middle" fill="#cfd2d8">red + blue paths</text>
+    </g>
+  </svg>
+  <p class="compact" style="font-size:8.4pt; color:var(--muted); margin:2px 0 0;">Month and year average the minutes per week like the sets (<code>scaleHeat()</code> ÷ <code>periodWeeks()</code>). A light with no minutes still shows faintly; a lit one carries a travelling pulse.</p>
+
+  <div style="display:grid; grid-template-columns: 32mm 1fr; gap: 12px; align-items: start; margin-top: 8px;">
+    <div><div class="phone"><img src="img/screenOverlays.png" alt=""></div><div class="caption">Cardio overlay (Targets on too)</div></div>
+    <div>
+      <div class="card compact">
+        <h3 style="font-size:11pt;">The vessel layer: <span class="path" style="font-size:8.6pt;">app/components/vesselLayer.gd</span></h3>
+        <p style="font-size:8.5pt; margin:0;"><code>BodyView.setVessels()</code> makes a <code>VesselLayer</code> on first use, as a child drawn above the figures, and hands it the levels (<code>setLevels()</code>). The red and blue paths run through each muscle's left / right anchor (<code>AppData.bodyView()</code> anchors), so they follow whichever body and view is shown; the front view gets a beating heart. Under them the shader's <code>dim</code> uniform fades the figure toward <code>dimColour</code>, the card colour. The style picks the finish (<code>glassVessels</code>): Modern draws flat crisp lines, Frutiger glassy glowing tubes (page 12). Colours are a code, not anatomy.</p>
+      </div>
+      <div class="note teal compact" style="margin: 8px 0 0; font-size:8.5pt;"><b>Health minutes</b> = easy + 2 × hard (<code>HeatEngine.healthMinutes()</code>, <code>healthWeights</code>), measured against the WHO guideline: 150 a week is the minimum (<code>healthMinimum</code>), 300 the extra-benefit end (<code>healthExtra</code>). The Balance tab's cardio panel (<code>_fillCardioPanel()</code> in weekScreen.gd) shows both lights as bars against their targets, then this line. Example from the screenshots: 50 easy + 2 × 25 hard = 100 / 150, "Below the WHO minimum".</div>
+      <div class="note blue compact" style="margin: 8px 0 0; font-size:8.5pt;"><b>When the Cardio chip shows:</b> from the first finished workout with any cardio minutes (<code>Targets.hasCardio()</code>). Strength sets never count as cardio, and cardio minutes never heat a muscle.</div>
+    </div>
+  </div>
+  <div class="foot"><span>hotMuscles · architecture guide</span><span>9</span></div>
+</section>
+
+<!-- ============================== 9. HOME PERIODS AND OVERLAYS ============================== -->
+<section class="page">
+  <div class="kicker">8 · Home periods and overlays</div>
+  <h2>Home periods and the two one-tap overlays</h2>
+  <p class="lead">The home page (<code>app/screens/weekScreen.gd</code>) can count four time spans, and two chips under the body change what it draws: Targets and Cardio. None of this touches the saved workouts; it only changes which workouts are counted and how the numbers are drawn.</p>
+
+  <div style="display:grid; grid-template-columns: 1fr 32mm; gap: 12px; align-items: start;">
+    <div>
+      <h3>Day | Week | Month | Year: <span class="path" style="font-size:9pt;">weekScreen.gd setPeriod()</span></h3>
+      <table class="compact" style="font-size:8.4pt; line-height:1.3;">
+        <tr><th style="width:12%;">Period</th><th style="width:31%;">Workouts counted</th><th>What the body and the tabs show</th></tr>
+        <tr><td><b>Day</b></td><td>since local midnight (<code>dayStart()</code>)</td><td>raw sets; Balance lists only the muscles worked today, as part of their weekly target</td></tr>
+        <tr><td><b>Week</b></td><td>the rolling 7 × 24 h (<code>workoutsInWindow()</code>)</td><td>raw sets, every muscle on Balance</td></tr>
+        <tr><td><b>Month</b></td><td>the rolling 30 days</td><td>average sets per week: the total ÷ <code>periodWeeks()</code>, the weeks since your first workout ever (at least 1, at most the whole period)</td></tr>
+        <tr><td><b>Year</b></td><td>the rolling 365 days</td><td>the same average; the Workouts tab has one row per month, its average week on a small body (<code>_monthBuckets()</code>)</td></tr>
+      </table>
+      <p class="compact" style="font-size:8.6pt; margin:6px 0 0;">The ids and days are <code>HeatEngine.periodIds</code> and <code>periodDays</code>. <code>setPeriod()</code> saves the pick (<code>homePeriod</code>), calls <code>refresh()</code> (<code>periodWorkouts()</code> → <code>effectiveSets()</code> → <code>scaleHeat()</code>, also for the cardio minutes) and replays the light-up over exactly 3 s (<code>startReplay(switchReplaySeconds)</code>). The 0–N slider stays the weekly scale in all four, so a month's average reads like a normal week.</p>
+      <div class="note compact" style="margin: 8px 0 0; font-size:8.5pt;"><b>Start-up replay:</b> with no workout running, opening the app empties the body and replays the period workout by workout, muscle by muscle from the top down (<code>startReplay()</code>, at most <code>replayMaxSeconds</code> = 4.5 s); a tap on the body skips it.</div>
+    </div>
+    <div><div class="phone"><img src="img/screenWeek.png" alt=""></div><div class="caption">Week, overlays off</div></div>
+  </div>
+
+  <h3 style="margin-top: 12px;">The overlay chips: <span class="path" style="font-size:9pt;">BodyCard.addFooterChip()</span> → <span class="path" style="font-size:9pt;">weekScreen.gd _applyOverlays()</span></h3>
+  <div class="grid2" style="align-items: start;">
+    <div class="card compact">
+      <h3 style="font-size:11pt;">Targets <span class="tag tApp">setTargetsOverlay()</span></h3>
+      <p style="font-size:8.5pt; margin:0 0 4px;">Shown while a target preset is on (page 8). <code>displayHeat()</code> → <code>HeatEngine.targetHeat()</code> redraws each muscle as its share of its target on the 0–N scale: at target = N, the hot end; a muscle with no target stays plain. The card title becomes "Sets vs targets" and the hint counts the muscles on target (<code>HeatEngine.onTarget()</code>).</p>
+      <svg viewBox="0 0 320 40" width="100%">
+        <defs><linearGradient id="infraT" x1="0" x2="1"><stop offset="0" stop-color="#000"/><stop offset="0.1667" stop-color="#6b1f9e"/><stop offset="0.3333" stop-color="#1f40ff"/><stop offset="0.5" stop-color="#00e0ff"/><stop offset="0.6667" stop-color="#26e64d"/><stop offset="0.8333" stop-color="#ffe626"/><stop offset="1" stop-color="#ff2114"/></linearGradient></defs>
+        <rect x="4" y="6" width="156" height="12" rx="6" fill="url(#infraT)"/><rect x="156" y="6" width="156" height="12" rx="6" fill="#ff2114"/>
+        <circle cx="160" cy="12" r="8" fill="#f4f4f2" stroke="#1b1d22"/>
+        <g font-size="8.5" fill="#6b6f78"><text x="4" y="34">0</text><text x="82" y="34" text-anchor="middle">50%</text><text x="160" y="34" text-anchor="middle">target</text><text x="312" y="34" text-anchor="end">2×</text></g>
+      </svg>
+      <p style="font-size:8.5pt; margin:2px 0 0;">The legend: <code>setScaleMode("target")</code> sets <code>HeatRangeSlider.scaleMode</code>, which numbers the slider 0 / 50% / target / 2× instead of sets. Balance lists only muscles with a target, each band running from the target to 2× it (<code>_bandOf()</code>); the region sheet shows "your target".</p>
+    </div>
+    <div class="card compact">
+      <h3 style="font-size:11pt;">Cardio <span class="tag tApp">setCardioOverlay()</span></h3>
+      <p style="font-size:8.5pt; margin:0 0 4px;">Shown once any cardio was logged (page 9). <code>cardioLevels()</code> → <code>bodyCard.setVessels()</code> → <code>BodyView.setVessels()</code>: red and blue vessels over the body, each as bright as its minutes are of the weekly target. The hint reads "Blue = easy x/y min · Red = hard x/y min" (<code>cardHintText()</code>) and the Balance tab gets the cardio panel with the health line.</p>
+      <h3 style="font-size:11pt; margin-top:8px;">Both chips</h3>
+      <p style="font-size:8.5pt; margin:0;">Remembered in settings.json (<code>overlayTargets</code>, <code>overlayCardio</code>, written once by <code>_writeOverlay()</code>), and both can be on together. <code>_applyOverlays()</code> does everything a chip changes in one pass: the chips' own state, the card title and hint, <code>setScaleMode()</code>, <code>setHeat(displayHeat(shownHeat))</code>, <code>setVessels()</code> and the Balance tab (<code>_fillBalance()</code>). The Balance tab always starts with a targets line: which presets are on, and a button to the Targets screen.</p>
+    </div>
+  </div>
+  <div class="foot"><span>hotMuscles · architecture guide</span><span>10</span></div>
+</section>
+
+<!-- ============================== 10. RENDERING ============================== -->
+<section class="page">
+  <div class="kicker">9 · Body rendering</div>
   <h2>Body rendering: region map texture, palette and shader</h2>
   <p class="lead">Each body is drawn as one textured rectangle by <code>app/components/bodyView.gd</code>. The texture is not a picture. It is a region map, <code>appData/bodyMaps/&lt;body&gt;_&lt;view&gt;.png</code>, baked by <code>tools/appData/bakeBodyMaps.py</code>: each colour channel stores a different number per pixel (like an ID pass in compositing). The shader <code>app/components/bodyMap.gdshader</code> reads those numbers and colours the body on every frame. Below: <code>male_front.png</code> split into its channels.</p>
 
@@ -684,7 +921,7 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
     <!-- heat -->
     <rect x="0" y="20" width="130" height="70" rx="12" fill="#fff" stroke="#d8d3ca"/>
     <text class="h" x="65" y="44" text-anchor="middle" font-size="11">heat per region</text>
-    <text class="p" x="65" y="60" text-anchor="middle" font-size="7.4" fill="#9a4a22">HeatEngine.weekHeat()</text>
+    <text class="p" x="65" y="60" text-anchor="middle" font-size="7.4" fill="#9a4a22">HeatEngine.effectiveSets()</text>
     <text x="65" y="74" text-anchor="middle" font-size="8.5" fill="#6b6f78">one number per region</text>
     <path d="M130 55 H168" stroke="#6b6f78" stroke-width="1.6" marker-end="url(#arr6)"/>
     <!-- palette -->
@@ -724,17 +961,65 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
   <h3 style="margin-top: 12px;">From a logged workout to colours on the Week screen</h3>
   <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 8px; font-size: 9pt; line-height:1.4;">
     <div class="card compact"><b style="color:var(--accent);">1 · Save</b><br><code>Storage.save()</code> writes <code>user://workouts.json</code> and emits <code>changed("workouts")</code>.</div>
-    <div class="card compact"><b style="color:var(--accent);">2 · Count</b><br><code>_onStorageChanged()</code> in weekScreen.gd calls <code>HeatEngine.weekHeat()</code>: one number per region.</div>
+    <div class="card compact"><b style="color:var(--accent);">2 · Count</b><br><code>_onStorageChanged()</code> in weekScreen.gd → <code>refresh()</code> → <code>HeatEngine.effectiveSets()</code>: one number per region.</div>
     <div class="card compact"><b style="color:var(--accent);">3 · Colour</b><br><code>bodyCard.setHeat()</code> → <code>bodyView.setHeat()</code>; each number goes through <code>amountColour()</code> into the palette.</div>
     <div class="card compact"><b style="color:var(--accent);">4 · Draw</b><br><code>bodyMap.gdshader</code> looks up every pixel's region id in the palette, so the GPU recolours the body.</div>
   </div>
   <div class="note" style="margin-top: 12px;"><b>Why it works this way:</b> an earlier version drew tens of thousands of outline points per body on every frame. Now the GPU gets one rectangle and two small textures, and the phone builds no geometry at all. If a body map file is missing, <code>AppData.bodyMap()</code> logs an error naming the file instead of quietly drawing something else.</div>
-  <div class="foot"><span>hotMuscles · architecture guide</span><span>7</span></div>
+  <div class="foot"><span>hotMuscles · architecture guide</span><span>11</span></div>
 </section>
 
-<!-- ============================== 8. BEHIND THE SCENES ============================== -->
+<!-- ============================== 11. LOOKS ============================== -->
 <section class="page">
-  <div class="kicker">7 · Behind the scenes</div>
+  <div class="kicker">10 · Looks</div>
+  <h2>Looks: a style and a palette, picked separately</h2>
+  <p class="lead">Settings → Look has two separate picks: a <b>style</b> (shapes, panels, fonts, the feel) and a <b>palette</b> (colours only). Each is one script file in <code>app/looks/</code>. AppTheme (<code>app/core/appTheme.gd</code>) puts the pair together into one Godot theme. A style never changes what a screen does, only how it looks.</p>
+
+  <div style="display:grid; grid-template-columns: 1fr 32mm 32mm; gap: 10px; align-items: start;">
+    <div>
+      <div class="card compact">
+        <h3 style="font-size:11pt;">The registry: <span class="path" style="font-size:8.6pt;">app/looks/looks.gd</span></h3>
+        <p style="font-size:8.5pt; margin:0;"><code>stylePaths</code> and <code>palettePaths</code> list the files in menu order; a file's name is its id (<code>idOf()</code>). <code>loadStyles()</code> / <code>loadPalettes()</code> load them, skipping a broken one with an error in the log. <code>defaultStyle</code> "modern" and <code>defaultPalette</code> "ember" are worn before you pick. To add a palette: copy a file, change its name and colours, add its path.</p>
+      </div>
+      <div class="card compact" style="margin-top: 8px;">
+        <h3 style="font-size:11pt;">Styles: <span class="path" style="font-size:8.6pt;">appStyle.gd</span> and <span class="path" style="font-size:8.6pt;">styles/</span></h3>
+        <p style="font-size:8.5pt; margin:0 0 4px;"><code>app/looks/appStyle.gd</code> (class AppStyle) is the base and on its own <i>is</i> the Modern look; <code>styles/modern.gd</code> only names it. A style overrides only what it changes: shape numbers (radii, paddings, text sizes), <code>adjustColours()</code>, <code>box(role, …)</code> for every panel, button and chip, fonts, <code>decorateFrame()</code>, <code>drawCardChrome()</code>, <code>glassVessels</code>.</p>
+        <p style="font-size:8.5pt; margin:0;"><b>Frutiger</b> (<code>styles/frutiger.gd</code>): glossy pills, glass cards, a sky page with bubbles and swooshes, glassy vessels, all drawn in code, with <code>app/looks/shapeBox.gd</code> for shapes StyleBoxFlat can't draw.</p>
+      </div>
+    </div>
+    <div><div class="phone"><img src="img/screenWeek.png" alt=""></div><div class="caption">Modern · Ember</div></div>
+    <div><div class="phone"><img src="img/screenLooks.png" alt=""></div><div class="caption">Frutiger · Glacier, cardio on</div></div>
+  </div>
+
+  <h3 style="margin-top: 10px;">The ten palettes: <span class="path" style="font-size:9pt;">app/looks/palettes/&lt;id&gt;.gd</span> <span style="font-family:'Segoe UI'; font-weight:400; font-size:8.5pt; color:var(--muted);">· swatches: bg, surface, accent, cold, hot</span></h3>
+  <div class="paletteGrid">
+    <div class="paletteCard"><div class="swatches"><i style="background:#121317"></i><i style="background:#1b1d22"></i><i style="background:#ff6a2b"></i><i style="background:#2f6dff"></i><i style="background:#ff2a1a"></i></div><b>Ember</b> <span class="path">ember</span><br>charcoal + orange · default</div>
+    <div class="paletteCard"><div class="swatches"><i style="background:#0d1620"></i><i style="background:#142231"></i><i style="background:#2fd4e8"></i><i style="background:#3d6bff"></i><i style="background:#ff3d2e"></i></div><b>Ocean</b> <span class="path">ocean</span><br>navy + cyan</div>
+    <div class="paletteCard"><div class="swatches"><i style="background:#0f1611"></i><i style="background:#17211a"></i><i style="background:#a6e22e"></i><i style="background:#3d7bff"></i><i style="background:#ff3d2e"></i></div><b>Forest</b> <span class="path">forest</span><br>dark green + lime</div>
+    <div class="paletteCard"><div class="swatches"><i style="background:#130f1c"></i><i style="background:#1c1728"></i><i style="background:#ff5fa2"></i><i style="background:#5b6cff"></i><i style="background:#ff3b4e"></i></div><b>Dusk</b> <span class="path">dusk</span><br>deep violet + hot pink</div>
+    <div class="paletteCard"><div class="swatches"><i style="background:#0c181b"></i><i style="background:#132327"></i><i style="background:#e0894f"></i><i style="background:#3f78ff"></i><i style="background:#ff3d2e"></i></div><b>Copper</b> <span class="path">copper</span><br>deep teal + copper</div>
+    <div class="paletteCard"><div class="swatches"><i style="background:#111111"></i><i style="background:#1a1a1a"></i><i style="background:#f2f2f2"></i><i style="background:#4d7dff"></i><i style="background:#ff4136"></i></div><b>Graphite</b> <span class="path">graphite</span><br>black + white, no colour</div>
+    <div class="paletteCard"><div class="swatches"><i style="background:#eceef1"></i><i style="background:#ffffff"></i><i style="background:#2f6bff"></i><i style="background:#2f5bff"></i><i style="background:#ff2a1a"></i></div><b>Light</b> <span class="path">light</span><br>light grey + blue</div>
+    <div class="paletteCard"><div class="swatches"><i style="background:#e0f1f5"></i><i style="background:#f7fcfd"></i><i style="background:#0a8fb8"></i><i style="background:#1c86d9"></i><i style="background:#e8322a"></i></div><b>Glacier</b> <span class="path">glacier</span><br>icy aqua-white + deep cyan</div>
+    <div class="paletteCard"><div class="swatches"><i style="background:#f1ebe1"></i><i style="background:#fbf8f3"></i><i style="background:#c4552d"></i><i style="background:#3a62e0"></i><i style="background:#d92b1f"></i></div><b>Sand</b> <span class="path">sand</span><br>warm cream + terracotta</div>
+    <div class="paletteCard"><div class="swatches"><i style="background:#f7ecef"></i><i style="background:#fffafb"></i><i style="background:#e0457b"></i><i style="background:#4a63e6"></i><i style="background:#e3262f"></i></div><b>Sakura</b> <span class="path">sakura</span><br>blush white + rose</div>
+  </div>
+  <p class="compact" style="font-size:8.4pt; color:var(--muted); margin:5px 0 0;">Each palette file holds <code>paletteName</code> and 17 <code>colours</code>: page, bg, surface, surfaceHi, line, text, textMuted, textFaint, accent, accentText, cold, neutral, hot, ghost, bodyPlain, bodyCosmetic, bodyGap. The body colours feed BodyView's palette texture (page 11); every colour is also in the theme as type "App".</p>
+
+  <h3 style="margin-top: 10px;">Switching the look: what runs when you tap a new style or palette</h3>
+  <div class="compact" style="display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; font-size: 8.3pt; line-height:1.35;">
+    <div class="card" style="padding:7px 8px;"><b style="color:var(--accent);">1 · Pick</b><br><code>setStyle()</code> / <code>setTheme()</code> in settingsScreen.gd save <code>Storage.setProfile("style" / "theme")</code>: the look is part of the profile.</div>
+    <div class="card" style="padding:7px 8px;"><b style="color:var(--accent);">2 · Follow</b><br>AppTheme's <code>_onStorageChanged()</code> sees the profile differ from what it wears and calls <code>apply(themeId, styleId)</code>.</div>
+    <div class="card" style="padding:7px 8px;"><b style="color:var(--accent);">3 · Build</b><br><code>style.buildTheme(palette)</code> makes one Godot theme; it goes on the root window, sets the clear colour, emits <code>themeChanged</code>.</div>
+    <div class="card" style="padding:7px 8px;"><b style="color:var(--accent);">4 · Redraw</b><br><code>_onThemeChanged()</code> in main.gd: a new palette → each screen's <code>rebuild()</code>; a new style → <code>_restyle()</code> builds every screen again, Settings back on top.</div>
+  </div>
+  <div class="note blue compact" style="margin-top: 8px; font-size:8.5pt;"><b>Previews without switching:</b> the first-launch setup (profileSetup.gd) dresses only itself in the palette you are trying, with <code>AppTheme.buildTheme()</code>, which builds a theme without applying it; <code>finish()</code> saves the profile and the whole app follows. A saved palette or style that no longer exists falls back to Ember / Modern (<code>_paletteIdOr()</code>, <code>_styleIdOr()</code>).</div>
+  <div class="foot"><span>hotMuscles · architecture guide</span><span>12</span></div>
+</section>
+
+<!-- ============================== 12. BEHIND THE SCENES ============================== -->
+<section class="page">
+  <div class="kicker">11 · Behind the scenes</div>
   <h2>Behind the scenes: building the data and keeping it fast</h2>
   <p class="lead">Two jobs happen out of sight. Scripts in <code>tools/</code> build the data files once on the PC, so the phone has almost nothing to compute at start-up. And every build is checked against two time limits, so the app stays quick to open and smooth to use.</p>
 
@@ -765,20 +1050,22 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
     <path d="M610 48 H632" stroke="#6b6f78" stroke-width="1.5" marker-end="url(#arr7)"/>
     <path d="M610 82 H632" stroke="#6b6f78" stroke-width="1.5" marker-end="url(#arr7)"/>
     <rect x="634" y="28" width="86" height="40" rx="10" fill="#dcf4f1" stroke="#12a39a"/><text x="677" y="45" text-anchor="middle" font-size="8" font-family="Consolas">appData/bodyMaps/</text><text x="677" y="59" text-anchor="middle" font-size="8" fill="#0b6f69">4 PNG maps</text>
-    <rect x="634" y="72" width="86" height="40" rx="10" fill="#dcf4f1" stroke="#12a39a"/><text x="677" y="89" text-anchor="middle" font-size="9" font-family="Consolas">muscles.json</text><text x="677" y="122" text-anchor="middle" font-size="7" fill="#0b6f69">all three in appData/</text><text x="677" y="103" text-anchor="middle" font-size="8" fill="#0b6f69">tap shapes, bands</text>
+    <rect x="634" y="72" width="86" height="40" rx="10" fill="#dcf4f1" stroke="#12a39a"/><text x="677" y="89" text-anchor="middle" font-size="9" font-family="Consolas">muscles.json</text><text x="677" y="122" text-anchor="middle" font-size="7" fill="#0b6f69">all four in appData/</text><text x="677" y="103" text-anchor="middle" font-size="8" fill="#0b6f69">tap shapes, bands</text>
 
     <!-- exercises -->
     <text class="h" x="0" y="124" font-size="11" fill="#4b2fc4">EXERCISES</text>
     <rect x="0" y="134" width="170" height="52" rx="10" fill="#fff" stroke="#d8d3ca"/><text class="h" x="85" y="154" text-anchor="middle" font-size="10.5">free-exercise-db</text><text class="p" x="85" y="168" text-anchor="middle" font-size="6.6" fill="#9a4a22">data/freeExerciseDb/dist/exercises.json</text><text x="85" y="179" text-anchor="middle" font-size="8" fill="#6b6f78">876 exercises, 17 coarse groups</text>
-    <rect x="0" y="192" width="170" height="52" rx="10" fill="#fff" stroke="#d8d3ca"/><text class="h" x="85" y="210" text-anchor="middle" font-size="10.5">Curated shares</text><text class="p" x="85" y="224" text-anchor="middle" font-size="6.6" fill="#9a4a22">tools/appData/curatedExercises.json</text><text x="85" y="237" text-anchor="middle" font-size="8" fill="#6b6f78">88 overrides + 8 new exercises</text>
+    <rect x="0" y="192" width="170" height="52" rx="10" fill="#fff" stroke="#d8d3ca"/><text class="h" x="85" y="210" text-anchor="middle" font-size="10.5">Our own lists</text><text class="p" x="85" y="224" text-anchor="middle" font-size="6.6" fill="#9a4a22">curated, researched, targetPresets, cardio</text><text x="85" y="237" text-anchor="middle" font-size="8" fill="#6b6f78">shares, 51 added exercises, presets</text>
     <path d="M170 160 C300 160 400 160 486 160" stroke="#6b6f78" stroke-width="1.5" fill="none" marker-end="url(#arr7)"/>
     <path d="M170 218 C300 218 400 190 486 180" stroke="#6b6f78" stroke-width="1.5" fill="none" marker-end="url(#arr7)"/>
     <path d="M610 150 H632" stroke="#6b6f78" stroke-width="1.5" marker-end="url(#arr7)"/>
-    <rect x="634" y="130" width="86" height="40" rx="10" fill="#dcf4f1" stroke="#12a39a"/><text x="677" y="147" text-anchor="middle" font-size="9" font-family="Consolas">exercises.json</text><text x="677" y="161" text-anchor="middle" font-size="8" fill="#0b6f69">884 exercises</text>
+    <rect x="634" y="130" width="86" height="40" rx="10" fill="#dcf4f1" stroke="#12a39a"/><text x="677" y="147" text-anchor="middle" font-size="9" font-family="Consolas">exercises.json</text><text x="677" y="161" text-anchor="middle" font-size="8" fill="#0b6f69">927 exercises</text>
+    <path d="M610 188 H632" stroke="#6b6f78" stroke-width="1.5" marker-end="url(#arr7)"/>
+    <rect x="634" y="176" width="86" height="40" rx="10" fill="#dcf4f1" stroke="#12a39a"/><text x="677" y="193" text-anchor="middle" font-size="9" font-family="Consolas">targets.json</text><text x="677" y="207" text-anchor="middle" font-size="8" fill="#0b6f69">presets, cardio</text>
 
     <rect x="200" y="226" width="520" height="48" rx="10" fill="#ffe2df"/>
     <text class="h" x="212" y="245" font-size="10" fill="#b52a1f">buildAppData.py stops and writes nothing when…</text>
-    <text x="212" y="262" font-size="8.5" fill="#6b2a24">an exercise or region id is unknown · a share is outside 0–1 · any muscle can't be reached by some exercise</text>
+    <text x="212" y="262" font-size="8.5" fill="#6b2a24">an id is unknown · a share is outside 0–1 · a muscle can't be reached · a preset offset is outside −12..+10</text>
   </svg>
 
   <div class="grid2" style="margin-top: 12px;">
@@ -788,7 +1075,7 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
 
   <div class="card compact" style="margin-top: 10px;">
     <h3>How the app meets those limits</h3>
-    <div class="step"><div class="num">✓</div><p><b>Long lists fill in over several frames.</b> pickerScreen.gd builds <code>firstRows</code> (6), then <code>rowsPerFrame</code> (3) per frame up to <code>pageSize</code> (40); all at once was a 90 ms stutter. weekScreen.gd does the same (<code>firstBalanceRows</code>).</p></div>
+    <div class="step"><div class="num">✓</div><p><b>Long lists fill in over several frames.</b> pickerScreen.gd builds <code>firstRows</code> (6), then <code>rowsPerFrame</code> (3) per frame up to <code>pageSize</code> (40); all at once was a 90 ms stutter. weekScreen.gd (<code>firstBalanceRows</code>) and targetsScreen.gd do the same.</p></div>
     <div class="step"><div class="num">✓</div><p><b>Update rows, don't rebuild them.</b> Existing rows are changed or moved in place.</p></div>
     <div class="step"><div class="num">✓</div><p><b>One write for many values.</b> A write costs about 4 ms, so <code>Storage.addEntries()</code> and <code>setProfileValues()</code> save many values at once.</p></div>
     <div class="step"><div class="num">✓</div><p><b>Body maps load in the background.</b> <code>_startMapDecodes()</code> in appData.gd decodes the PNGs on <code>WorkerThreadPool</code> threads.</p></div>
@@ -797,9 +1084,9 @@ td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top
 
   <div class="grid2" style="margin-top: 10px;">
     <div class="note blue compact" style="margin:0; font-size:8.4pt;"><b>Automatic checks</b> in <code>tests/</code>, all run through <code>runGodot.py</code>: testHeatEngine.gd (maths), testStorage.gd (saves, backups), testFlows.gd (every screen with real numbers), testTouchUi.gd (synthetic finger), testKineticScroll.gd, testStartup.gd (timing), testBuildAppData.py (bad data refused). <code>checkBuild.py</code> also opens each exe three times on a throwaway save folder.</div>
-    <div class="card"><h3>Rebuild and ship</h3><p class="mono" style="margin:0; font-size:7.8pt; line-height:1.55;">python tools/appData/buildAppData.py<br>python tools/build/buildAll.py<br>python tools/build/checkBuild.py &lt;exe&gt; &lt;apk&gt;</p><p class="compact" style="font-size:8.4pt; color:var(--muted); margin:4px 0 0;">Builds land in <code>builds/hotMuscles_vNNN</code> (not in the repo; shared on the Releases page). checkBuild.py fails any build that holds data/, models/, tools/, tests/, docs/ or icons/.</p></div>
+    <div class="card"><h3>Rebuild and ship</h3><p class="mono" style="margin:0; font-size:7.8pt; line-height:1.55;">python tools/appData/buildAppData.py<br>python tools/build/buildAll.py<br>python tools/build/checkBuild.py &lt;exe&gt; &lt;apk&gt;</p><p class="compact" style="font-size:8.4pt; color:var(--muted); margin:4px 0 0;">Builds land in <code>builds/hotMuscles_vNNN</code> (not in the repo; shared on the Releases page). Every build is a new version and <code>builds/</code> keeps every apk ever made. checkBuild.py fails any build that holds data/, models/, tools/, tests/, docs/ or icons/, or lacks <code>appData/targets.json</code>.</p></div>
   </div>
-  <div class="foot"><span>hotMuscles · architecture guide</span><span>8</span></div>
+  <div class="foot"><span>hotMuscles · architecture guide</span><span>13</span></div>
 </section>
 
 
