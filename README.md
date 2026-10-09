@@ -27,6 +27,21 @@ protected your PC" because the file isn't signed: click **More info**, then **Ru
 
 Everything stays on your device. The app works offline and never sends anything anywhere.
 
+## What it does
+
+- **Log a workout**: pick exercises (search, equipment chips, favourites, templates), tap sets up and
+  down, and watch this workout's heat land on the body. Tap a muscle to get the best exercises for it;
+  hold one to pick several muscles at once.
+- **See your week**: the home body shows today, the last 7 days, or the average week over a month or a
+  year. A Balance tab ranks every muscle by how far it is from its target.
+- **Targets for a sport or a look**: switch on researched presets (marathon, sprinting, basketball,
+  football, swimming, cycling, climbing, boxing / MMA, V-taper, mew2, hourglass) or make your own. The
+  body then shows how close each muscle is, and the exercises each preset leans on are tagged in the
+  picker.
+- **Cardio**: log minutes and how hard it felt (easy, hard, very hard). A red and blue vessel overlay
+  lights up as you fill your weekly easy and hard cardio, with the WHO health minimum alongside.
+- **Two looks**: Modern and Frutiger (glossy, bubbly Frutiger Aero), each in ten colour palettes.
+
 ## How it's built
 
 A tour of the app's insides, with the file and function behind each part: [docs/hotMusclesArchitecture_v3.pdf](docs/hotMusclesArchitecture_v3.pdf)

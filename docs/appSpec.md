@@ -54,7 +54,14 @@ direct), `curated` (bool).
   raise, a Y-raise for lower traps). Regions the auto table cannot reach (rotatorCuff, serratus,
   obliques, hipFlexors, lowerTraps, tibialis) must be reachable through curated ones.
 - Non-curated exercises show a small "rough data" marker in lists.
-- Stretching and cardio categories: kept, but contribute zero heat.
+- Stretching and cardio categories: kept, but contribute zero muscle heat. Cardio is logged in
+  minutes and an effort instead of sets (see Cardio below); `tools/appData/cardio.json` gives every
+  cardio exercise its default effort and adds 12 common activities (outdoor run, brisk walk, hike,
+  sprint intervals, laps, HIIT circuit, air bike, spin class, team game, racket sport, dance class,
+  boxing bag).
+- Sport exercises the preset research named that the database lacked were added too (Nordic curl,
+  Copenhagen plank, hangboard hang, dead hang, single-leg RDL, clamshell, rotational med-ball throw,
+  single-leg calf raise, prone Y-T-W).
 - `forearmKind`: `grip` where the forearm work is holding on (deadlifts, rows, pulldowns, pull-ups,
   shrugs, carries...), `direct` where it is wrist/elbow work (wrist curls, hammer/reverse curls),
   `none` otherwise. Drives the grips checkbox (below).
@@ -77,12 +84,32 @@ Shown once, before anything else (and editable later from Settings):
 Big, friendly, few steps, a live preview of the body in the chosen gradient and theme.
 
 ### Home = the week
-- Header: "This week" / greeting with the name, date range, number of workouts, total sets.
+- **Day | Week | Month | Year** chips under the header (owner, 2026-10-10; remembered). Day = since
+  local midnight, raw sets; Week = the rolling 7 days; Month (30 days) and Year (365 days) show the
+  AVERAGE sets per week (over the weeks since the first workout ever, at most the whole period), so the
+  0-N slider is always the weekly scale. Every switch replays the light-up over exactly 3 s. The day
+  view lists only the muscles worked today with "% of week"; the year view's Workouts tab has one row
+  per month with its average week on a small body.
+- Header: "This week" / greeting with the name, date range, number of workouts, total sets (and cardio
+  minutes when there are any).
 - **Body card**: front / back / both toggle, the heat for the last 7 days in the heat gradient, and
   the same 0-N slider as the workout card (it is the legend; the week remembers its own N). No
   separate target colouring: the map just runs min to max.
   Tap a muscle -> region sheet.
-- Tabs under it: **Balance | Workouts**
+- **One-tap overlays** under the body (owner, 2026-10-10), each chip shown only when it has something
+  to show, both remembered, both can be on together:
+  - **Targets** (a target preset is on): each muscle drawn as its share of its target (at target = the
+    hot end; muscles without a target stay plain), title "Sets vs your targets", the hint counts the
+    muscles on target, the balance rows use the targets (over = more than 2x), the region sheet shows
+    "your target".
+  - **Cardio** (once any cardio was logged, per the research): red (hard cardio) and blue (easy cardio)
+    vessel networks over the body, each as bright as its minutes are of the weekly target (capped at
+    full), a pulse running along each lit one and a beating heart on the front; the figure dims a
+    little under them. The hint gives "Easy x/y min · Hard x/y min"; the Balance tab gets a cardio panel
+    with both bars, the health line (easy + 2 x hard against the WHO 150, extra benefit at 300) and the
+    note "Colours are a code, not anatomy". Month / year average the minutes per week like the sets.
+- Tabs under it: **Balance | Workouts** (the Balance tab starts with a targets line: which presets
+  are on and a button to the Targets screen)
   - **Balance**: regions ranked by how far off target, each with a bar showing effective sets vs its
     target band and an under / ok / over / missed tag. Tap -> region sheet.
   - **Workouts**: the workouts in the week (date, length, sets, a tiny body thumbnail with its own
@@ -110,6 +137,13 @@ Big, friendly, few steps, a live preview of the body in the chosen gradient and 
 - An exercise at **0 sets is "planned"**: shown as the ghost outline on the body, turns into real heat
   as sets are added. Whether newly added exercises start at 0 or 1 set is a setting (default: 1).
 - A running workout survives closing the app.
+- **Cardio rows** (owner, 2026-10-10, model from the research): a cardio exercise logs minutes (a
+  stepper in steps of 5, starting at 20 or 0 by the "new exercises start at" setting) and how hard it
+  felt: **Easy** (could chat in full sentences, zone 1), **Hard** (short phrases, zone 2), **Very hard**
+  (a word or two, zone 3), each with its talk-test hint under the chips; the effort is remembered per
+  exercise. Easy minutes light the blue (easy cardio), hard and very hard the red (hard cardio).
+  Cardio gives no muscle heat; strength sets never count as cardio. Minutes alone are enough to finish
+  a workout; an entry with 0 sets and 0 minutes is planned and dropped on finish.
 
 ### Exercise picker (from a workout, or from "Find exercises")
 - Search box, equipment filter chips, a "show hidden" chip.
@@ -124,6 +158,14 @@ Big, friendly, few steps, a live preview of the body in the chosen gradient and 
 - **Tap a muscle on the body** -> the list re-sorts to recommended exercises for that muscle (biggest
   share first, then ones that hit it without loading much else; favourites and previously used get a
   small boost; equipment chips still apply). A "for: Rear delt x" chip shows and clears the filter.
+- **Several muscles** (owner, 2026-10-10): hold a muscle on the body to start picking several; then
+  a tap or a hold adds or drops more ("for: lats + biceps x", 3+ = "for: N muscles"); the order is
+  the share on all of them summed. A plain tap with nothing held still picks just that one.
+- **"Below target" chip** (shown while a target preset is on): exercises for the muscles furthest
+  below their target (last 7 days + this workout) first. It, Filter by unused and picked muscles all
+  set the order, so turning one on clears the others.
+- **Preset tags**: an exercise the research names as key for a switched-on preset carries that
+  preset's name as a tag (e.g. "Basketball" and "mew2" together).
 - **Templates tab**: saved templates (rename / delete), apply one -> its exercises (with their sets
   and grips settings, or at 0 sets if that setting is on) drop into the current workout.
 - "rough data" marker on non-curated exercises.
@@ -134,8 +176,24 @@ Big, friendly, few steps, a live preview of the body in the chosen gradient and 
 - Untouched muscles: show / hide (hide = 0-set muscles stay plain body colour).
 - New exercises start at: 0 sets (planned) / 1 set.
 - Default body view: front / back / both.
+- Look: **Style** (Modern | Frutiger) and **Colours** (10 palettes). Styles and palettes are modules
+  in `app/looks/` (one file each, registered in `looks.gd`); a missing one falls back to Modern / Ember.
+- Targets: which presets are on, and a button to the Targets screen.
 - Backup: export everything as JSON (copied to clipboard + saved under user://backups) and import
   from clipboard. Works the same on Android and Windows.
+
+### Targets screen (owner, 2026-10-10)
+- **Target presets**, each researched by its own agent (sources in `data/sources.md`): sports
+  Marathon, Sprinting, Basketball, Football (soccer), Swimming, Cycling, Climbing, Boxing / MMA, and
+  physiques V-taper, mew2 (Mewtwo build), Hourglass. Each = a weekly sets offset per muscle (-12..+10)
+  from the **baseline** (the home slider, default 12), weekly cardio minutes, and its key exercises.
+- Any number on at once; per muscle the target is the **highest** of max(0, baseline + offset) over
+  the presets that are on; cardio targets are the highest preset or the default (90 easy + 30 hard =
+  the WHO 150), whichever is more.
+- Sections Sports / Physique / Yours; tap toggles, a preview body shows the combined targets.
+- **Your own**: "+ New target", or hold any preset to copy it; the editor has a stepper per muscle by
+  group (showing the resulting sets a week), easy / hard cardio minutes, Save (a new one is switched
+  on), Delete with undo.
 
 ---
 
@@ -163,12 +221,15 @@ Big, friendly, few steps, a live preview of the body in the chosen gradient and 
 ---
 
 ## 4. Persistence
-JSON files under `user://`: profile, settings, workouts (submitted + the one in progress), templates,
-exercise prefs (favourite / hidden / grips memory). Saved on every change, with a version number.
+JSON files under `user://`: profile, settings (incl. the home period, the presets that are on, your
+own presets and the two overlays), workouts (submitted + the one in progress; cardio entries carry
+minutes + effort), templates, exercise prefs (favourite / hidden / grips memory / last cardio effort).
+Saved on every change, with a version number.
 
 ## 5. Builds
 `builds/hotMuscles_vNNN.exe` (Windows, portrait window ~430x930, resizable) and
-`builds/hotMuscles_vNNN.apk` (Android debug-signed, installable by copying to the phone).
+`builds/hotMuscles_vNNN.apk` (Android debug-signed, installable by copying to the phone). Every build
+is a new version, and `builds/` keeps every apk there ever was (owner, 2026-10-10).
 Only `app/`, `appData/` and the icon are exported - never `data/`, `models/`, `tools/`.
 
 ## Not in v1

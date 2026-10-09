@@ -308,11 +308,14 @@ static func minuteCount(entries: Array) -> int:
 
 
 static func workSummary(entries: Array) -> String:
-	# "12 sets", "30 min cardio" or "12 sets · 30 min cardio"
+	# "12 sets", "1 set", "30 min cardio" or "12 sets · 30 min cardio"
 	var sets: int = setCount(entries)
 	var minutes: int = minuteCount(entries)
+	var setsText: String = "%d sets" % sets
+	if sets == 1:
+		setsText = "1 set"
 	if minutes <= 0:
-		return "%d sets" % sets
+		return setsText
 	if sets <= 0:
 		return "%d min cardio" % minutes
-	return "%d sets · %d min cardio" % [sets, minutes]
+	return "%s · %d min cardio" % [setsText, minutes]

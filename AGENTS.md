@@ -18,18 +18,19 @@ This file is canonical. `CLAUDE.md` only points here.
 |---|---|
 | `docs/appSpec.md` | **the full app spec** - every agreed feature, screen and rule. Read before building anything |
 | `docs/hotMusclesArchitecture_v3.pdf` | illustrated architecture guide, naming the real file and function behind every part; source `docs/architecture/architectureV3.html` + `img/` (reprint command in its header) - update it when the app's shape changes or a quoted file or function is renamed |
-| `app/` | the Godot app (each file opens with what it offers): `core/` = autoloads AppData, Storage, AppTheme + static HeatEngine, HeatGradients; `components/` = BodyView, KineticScroll, HeatRangeSlider |
+| `app/` | the Godot app (each file opens with what it offers): `core/` = autoloads AppData, Storage, AppTheme + static HeatEngine, HeatGradients, Targets (presets on / your own / tags); `components/` = BodyView, VesselLayer (the cardio overlay), KineticScroll, HeatRangeSlider |
+| `app/looks/` | styles (`styles/modern.gd`, `styles/frutiger.gd`, extending `appStyle.gd`) and palettes (`palettes/*.gd`), registered in `looks.gd`; the id is the file name |
 | `app/main.gd` | AppRoot: screen stack + slides, bottom sheets, toast, Android back / Escape, safe area |
-| `app/screens/` | WeekScreen (home), WorkoutScreen (live + editor), PickerScreen, SettingsScreen, ProfileSetup; all extend AppScreen |
+| `app/screens/` | WeekScreen (home), WorkoutScreen (live + editor), PickerScreen, SettingsScreen, ProfileSetup, TargetsScreen, TargetEditor; all extend AppScreen |
 | `app/ui/` | shared widgets: Ui (static builders + text formats), TapRow, BottomSheet, Toast, BodyCard, Segmented, HScrollStrip, BalanceBar, GradientBar, AppIcon |
-| `appData/` | runtime data the app loads (built by `tools/appData/`, do not hand-edit): `exercises.json`, `muscles.json` (regions, tap shapes, centres) and `bodyMaps/<body>_<view>.png` - the baked body pictures the app draws (one region id per texel, so they ship byte for byte: `importer="keep"`, never a texture import) |
+| `appData/` | runtime data the app loads (built by `tools/appData/`, do not hand-edit): `exercises.json`, `muscles.json` (regions, tap shapes, centres), `targets.json` (target presets + the cardio model) and `bodyMaps/<body>_<view>.png` - the baked body pictures the app draws (one region id per texel, so they ship byte for byte: `importer="keep"`, never a texture import) |
 | `tests/` | checks and screenshot drivers, all run through `tests/runGodot.py` (see Checks) - never exported |
 | `tools/muscleCarve/` | turns MuscleMap's drawings into our 30 muscle regions -> `data/muscleShapes/muscleShapes.json` (own README) |
-| `tools/appData/` | builds `appData/` from the carved shapes + the exercise database + our curated exercise shares |
+| `tools/appData/` | builds `appData/` from the carved shapes + the exercise database + our curated and researched exercise shares (`curatedExercises.json`, `researchedExercises.json`), the target presets (`targetPresets.json`) and the cardio model (`cardio.json`) |
 | `data/` | source data and previews (ignored by Godot via `.gdignore`). `data/sources.md` lists upstream versions |
 | `data/freeExerciseDb/` | third-party exercise database clone, NOT in our history - restore it with the steps in `data/sources.md` |
 | `models/muscleMap/source/` | the body drawings' source files (MIT; true upstream in `data/sources.md`), ignored by Godot, never exported |
-| `builds/` | finished exe + apk, not in history |
+| `builds/` | finished exe + apk, not in history - keeps EVERY apk ever built (never delete one) |
 | `export_presets.cfg` | "Windows Desktop" (one-file exe) and "Android" (com.aphyr.hotmuscles, portrait, arm64, VIBRATE only, immersive); both ship `app/`, `appData/*.json`, `appData/bodyMaps/*.png` and `icon.svg` only |
 | `tools/build/` | `buildAll.py` (next vNNN exe then apk) and `checkBuild.py` (opens a build and proves what is inside) |
 | `tools/icon/`, `icons/` | `makeIcon.py` draws `icon.svg` from the carved muscle shapes (`data/muscleShapes`) and rasterizes the launcher / exe / adaptive pngs into `icons/` (build-time only, not shipped) |
@@ -48,7 +49,9 @@ This file is canonical. `CLAUDE.md` only points here.
   no-reply email `338727094+aphyr-dev@users.noreply.github.com`. NEVER commit with the owner's real email, a real name or any handle but aphyr:
   check `git config user.email` before the first commit of a session.
 - Builds: `builds/hotMuscles_vNNN.exe` and `builds/hotMuscles_vNNN.apk` (any older `*_vNNN` build
-  still counts) share ONE version counter. List `builds/` first, always upversion, never overwrite. Export every exe BEFORE the apk
+  still counts) share ONE version counter. List `builds/` first, always upversion, never overwrite
+  (owner, 2026-10-10: every build is a new version, and `builds/` keeps every apk there ever was or
+  will be - never delete or replace one). Export every exe BEFORE the apk
   from the same `.godot` cache (an apk export bloats the next exe - godot skill, android-export).
   Android: `--export-debug "Android"` (no release keystore on this box).
 - Automated windowed runs: muted (`--audio-driver Dummy`) and parked far off to the side.
@@ -59,7 +62,8 @@ This file is canonical. `CLAUDE.md` only points here.
 ```
 MuscleMap swift ──muscleCarve──> data/muscleShapes/muscleShapes.json ─┐
 freeExerciseDb dist/exercises.json ───────────────────────────────────┼─ tools/appData ─> appData/*.json ─────> app
-tools/appData/curatedExercises.json (hand-tuned shares) ──────────────┘    └──> appData/bodyMaps/*.png ─> app
+tools/appData/curatedExercises.json (hand-tuned shares) ──────────────┤    └──> appData/bodyMaps/*.png ─> app
+tools/appData/researchedExercises.json, targetPresets.json, cardio.json ┘
 ```
 
 `tools/appData/bakeBodyMaps.py` (called by `buildAppData.py`) bakes each body x view into a lossless region
@@ -87,6 +91,7 @@ python tests/runGodot.py script res://tests/testTouchUi.gd --window      # synth
 python tests/runGodot.py script res://tests/testStartup.gd --window      # start time + worst frame of every everyday step
 python tests/runGodot.py script res://tests/shotBodyView.gd --window --resolution 1290x930 -- <outFolder>
 python tests/runGodot.py script res://tests/shotPhase2.gd --window -- <outFolder> [ember|light|ocean|setup]
+python tests/runGodot.py script res://tests/shotPhase2.gd --window -- <outFolder> look <style res path> <palette,palette>
 ```
 
 App tests use a throwaway `user://_test...` folder (deleted at the end), never the real saves.

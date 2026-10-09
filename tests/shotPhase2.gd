@@ -9,6 +9,9 @@ extends SceneTree
 ## look pass: `-- <outFolder> look <style script res path> <palette,palette,...>` puts that style module
 ##   on the app (registered or not - for judging a new style) and shoots the main screens once per
 ##   palette as look_<style file>_<palette>_<shot>.png; a style that does not load fails the run
+## the sample week holds two cardio sessions; the full passes and the look pass also shoot the targets
+##   and cardio parts (both home overlays, the Targets screen and editor, a cardio workout row, the
+##   picker with several muscles, preset tags and Below target)
 ## the throwaway folder is deleted at the end; prints each file it saved
 
 ### /// TUNING ///
@@ -99,6 +102,8 @@ func _seed(themeId: String, body: String) -> void:
 	_addWorkout(now - 3.1 * day, 3300.0, [["Bent_Over_Barbell_Row", 4], ["Wide-Grip_Lat_Pulldown", 3], ["Pullups", 3], ["Face_Pull", 3], ["Barbell_Curl", 3], ["Hammer_Curls", 2]])
 	_addWorkout(now - 1.05 * day, 4200.0, [["Barbell_Squat", 4], ["Romanian_Deadlift", 3], ["Leg_Press", 3], ["Lying_Leg_Curls", 3], ["Standing_Calf_Raises", 4], ["Cable_Crunch", 3]])
 	_addWorkout(now - 10.0 * day, 3000.0, [["Barbell_Deadlift", 3]])
+	_addCardio(now - 4.0 * day, "Walking_Brisk", 50, "easy")
+	_addCardio(now - 2.0 * day, "Running_Outdoor", 25, "hard")
 	storage.setFavourite("Face_Pull", true)
 	storage.setFavourite("Side_Lateral_Raise", true)
 	storage.setHidden("Cable_Shrugs", true)
@@ -112,6 +117,14 @@ func _addWorkout(startedAt: float, length: float, rows: Array) -> void:
 	for row in rows:
 		storage.addEntry(row[0], row[1], false)
 	storage.finishWorkout(startedAt + length)
+
+
+func _addCardio(startedAt: float, exerciseId: String, minutes: int, effort: String) -> void:
+	storage.startWorkout(startedAt)
+	storage.addEntry(exerciseId)
+	storage.setEntryMinutes(0, minutes)
+	storage.setEntryEffort(0, effort)
+	storage.finishWorkout(startedAt + minutes * 60.0)
 
 
 ### /// PASSES ///
@@ -254,6 +267,9 @@ func _themePass(themeId: String, body: String, everything: bool) -> void:
 		app.topSheet().choose("discard")
 		await _wait(settleSeconds)
 
+	if everything:
+		await _targetShots(week)
+
 	# settings
 	var settings: Node = app.openSettings()
 	await _wait(settleSeconds)
@@ -332,8 +348,87 @@ func _lookPass(stylePath: String, paletteIds: PackedStringArray) -> bool:
 		app.openSettings()
 		await _wait(settleSeconds)
 		await _grab("settings")
+		app.goBack()
+		await _wait(settleSeconds)
+		await _targetShots(week)
 		_closeApp()
 	return true
+
+
+func _targetShots(week: Node) -> void:
+	### WHAT THIS DOES
+	# the targets and cardio parts: both home overlays (body + balance tab), the Targets screen and
+	# editor, a cardio row in a workout, the picker with several muscles, preset tags, Below target
+
+	storage.setSetting("activeTargets", ["basketball", "mew2"])
+	await _wait(0.2)
+	week.scroll.scrollTo(0.0)
+	week.setTargetsOverlay(true)
+	await _wait(blendSeconds)
+	await _grab("week_targets")
+	week.scroll.scrollTo(560.0)
+	await _wait(0.3)
+	await _grab("week_targets_balance")
+	week.setTargetsOverlay(false)
+	week.scroll.scrollTo(0.0)
+	week.setCardioOverlay(true)
+	await _wait(blendSeconds)
+	await _grab("week_cardio")
+	week.scroll.scrollTo(560.0)
+	await _wait(0.3)
+	await _grab("week_cardio_panel")
+	week.scroll.scrollTo(0.0)
+	week.setTargetsOverlay(true)
+	await _wait(blendSeconds)
+	await _grab("week_both_overlays")
+	week.setTargetsOverlay(false)
+	week.setCardioOverlay(false)
+
+	var screen: Node = app.openTargets()
+	await _wait(settleSeconds)
+	await _grab("targets")
+	screen.scroll.scrollTo(700.0)
+	await _wait(0.3)
+	await _grab("targets_lower")
+	var editor: Node = screen.copyPreset("vTaper")
+	await _wait(settleSeconds)
+	editor.changeOffset("glutes", 2)
+	await _wait(0.4)
+	await _grab("target_editor")
+	app.goBack()
+	await _wait(settleSeconds)
+	app.topSheet().choose("discard")
+	await _wait(settleSeconds)
+	app.goBack()
+	await _wait(settleSeconds)
+
+	var workout: Node = week.startWorkout()
+	await _wait(settleSeconds)
+	workout.addExercises(["Pullups", "Running_Outdoor"])
+	workout.setMinutes(1, 30)
+	await _wait(blendSeconds)
+	workout.scroll.scrollTo(380.0)
+	await _wait(0.3)
+	await _grab("workout_cardio")
+	var picker: Node = workout.openPicker()
+	await _wait(settleSeconds)
+	picker.addRegionFilter("lats")
+	picker.setRegionFilter("rearDelt")
+	await _wait(0.4)
+	await _grab("picker_several")
+	picker.clearRegionFilter()
+	picker.setSearch("nordic")
+	await _wait(0.4)
+	await _grab("picker_tags")
+	picker.setSearch("")
+	picker.setOrder("target")
+	await _wait(0.4)
+	await _grab("picker_below_target")
+	app.goBack()
+	await _wait(settleSeconds)
+	workout.discard()
+	await _wait(settleSeconds)
+	storage.setSetting("activeTargets", [])
 
 
 func _setupPass() -> void:
