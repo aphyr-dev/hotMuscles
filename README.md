@@ -43,5 +43,8 @@ also carries the credit lines for the body drawings below. The exercise list is 
   by ELABBASSI Hicham (MIT), taken via [MuscleMap](https://github.com/melihcolpan/MuscleMap) by Melih Colpan (MIT).
 - **Exercise list**: [free-exercise-db](https://github.com/yuhonas/free-exercise-db), built on
   [wrkout/exercises.json](https://github.com/wrkout/exercises.json). Both public domain.
+- **Exercise science**: the muscle shares, sport and physique targets and the cardio model are our own
+  numbers, researched from published studies, position stands and coaching sources - every page we read is
+  listed in [data/sources.md](data/sources.md#research-references). No other dataset is copied in.
 
 More detail in [data/sources.md](data/sources.md).
