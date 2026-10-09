@@ -1,0 +1,49 @@
+{
+  "readme": [
+      "the cardio model - read by buildAppData.py into appData/targets.json (efforts, lights, default target) and appData/exercises.json (each cardio exercise's default effort, plus the added activities)",
+      "made in the 2026-10-10 research round (the talk test, session RPE, the 3-zone model, WHO 2020); sources in data/sources.md",
+      "efforts: what the user picks after a session; zone = which of the three zones its minutes count in",
+      "lights: the two cardio lights; zones = how much of a minute in each zone lights it",
+      "defaultTarget: weekly minutes per light with no preset on (90 easy + 2 x 30 hard = the WHO 150)"
+  ],
+  "defaultTarget": {"easyCardio": 90, "hardCardio": 30},
+  "efforts": [
+    {"id": "easy", "label": "Easy", "hint": "Breathing harder than resting, but you could chat in full sentences.", "zone": "z1"},
+    {"id": "hard", "label": "Hard", "hint": "Short phrases only. A strong pace you could hold for 20 to 60 minutes.", "zone": "z2"},
+    {"id": "veryHard", "label": "Very hard", "hint": "A word or two at most. Intervals, sprints, race efforts.", "zone": "z3"}
+  ],
+  "lights": [
+    {"id": "easyCardio", "name": "Easy cardio", "colour": "blue", "zones": {"z1": 1, "z2": 0, "z3": 0}, "explain": "Your aerobic base: time spent at a pace where you could still chat. Long, easy sessions that build endurance."},
+    {"id": "hardCardio", "name": "Hard cardio", "colour": "red", "zones": {"z1": 0, "z2": 1, "z3": 1}, "explain": "Time spent too hard to chat: tempo runs, intervals, sprints, hard games. Each minute counts double toward the health guideline."}
+  ],
+  "activities": {
+    "Bicycling": {"effort": "easy", "note": "Commuting and leisure riding is mostly chatty. Hill efforts or group rides: Hard."},
+    "Bicycling_Stationary": {"effort": "easy", "note": "Steady spinning. Interval programmes: Very hard."},
+    "Elliptical_Trainer": {"effort": "easy", "note": "About 5 METs at a moderate setting."},
+    "Jogging_Treadmill": {"effort": "easy", "note": "Jogging is a conversational pace by definition."},
+    "Prowler_Sprint": {"effort": "veryHard", "note": "All-out sled pushes. Log the block of pushes plus the rests between them."},
+    "Recumbent_Bike": {"effort": "easy", "note": "Seated, low strain."},
+    "Rope_Jumping": {"effort": "hard", "note": "About 11 METs; few people can chat while skipping. Fast rounds or double-unders: Very hard."},
+    "Rowing_Stationary": {"effort": "easy", "note": "Steady rowing under about 100 W. Timed pieces (500 m, 2 km): Very hard."},
+    "Running_Treadmill": {"effort": "hard", "note": "Running (not jogging) is usually above the chatty pace. Pick Easy if you could chat."},
+    "Skating": {"effort": "easy", "note": "Recreational pace."},
+    "Stairmaster": {"effort": "hard", "note": "Stair machines are about 9 METs; short phrases at best for most people."},
+    "Step_Mill": {"effort": "hard", "note": "Same as the Stairmaster."},
+    "Trail_Running_Walking": {"effort": "easy", "note": "Mostly chatty with hill spikes. A hard trail run: Hard."},
+    "Walking_Treadmill": {"effort": "easy", "note": "Steep incline walking can be Hard."}
+  },
+  "added": {
+    "Running_Outdoor": {"name": "Running (outdoors)", "equipment": "body only", "effort": "hard", "note": "Same as treadmill running. Easy runs go in as Easy."},
+    "Walking_Brisk": {"name": "Brisk walk", "equipment": "body only", "effort": "easy", "note": "Counts toward health minutes when you are breathing harder than at rest."},
+    "Hiking": {"name": "Hiking", "equipment": "body only", "effort": "easy", "note": "Steep climbs with a pack can be Hard."},
+    "Sprint_Intervals": {"name": "Sprint intervals", "equipment": "body only", "effort": "veryHard", "note": "Track, hill or field sprints. Log the sprint block plus the rests between sprints."},
+    "Swimming_Laps": {"name": "Swimming laps", "equipment": "other", "effort": "hard", "note": "Rate by feel: the talk test does not work in water, and heart rate runs lower than on land."},
+    "HIIT_Circuit": {"name": "Circuit / HIIT class", "equipment": "body only", "effort": "veryHard", "note": "Burpees, Tabata and the like. Also use this for a short-rest weights circuit."},
+    "Air_Bike_Intervals": {"name": "Air bike intervals", "equipment": "machine", "effort": "veryHard", "note": "Assault or echo bike sprints. Log the interval block."},
+    "Spin_Class": {"name": "Spin class", "equipment": "machine", "effort": "hard", "note": "Mixed class, mostly above the chatty pace."},
+    "Team_Sport_Game": {"name": "Team sport game", "equipment": "other", "effort": "hard", "note": "Football or basketball games average close to threshold heart rate."},
+    "Racket_Sport": {"name": "Racket sport", "equipment": "other", "effort": "hard", "note": "Singles tennis, squash, badminton. Doubles tennis is closer to Easy."},
+    "Dance_Cardio_Class": {"name": "Dance cardio class", "equipment": "body only", "effort": "hard", "note": "Zumba-style classes, about 6.5 METs."},
+    "Boxing_Bag": {"name": "Boxing / bag rounds", "equipment": "other", "effort": "hard", "note": "Timed rounds. Hard sparring or all-out rounds: Very hard."}
+  }
+}

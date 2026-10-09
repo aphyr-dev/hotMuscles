@@ -11,9 +11,14 @@ what this offers
 - appData/exercises.json - every exercise of the free exercise database, each turned into
                            region shares: hand-tuned (curatedExercises.json) first, then researched
                            (researchedExercises.json), then the automatic guess; plus the added
-                           exercises of both files and each exercise's search aliases
-- loud checks: exits non-zero on an unknown exercise or region id, a share outside 0..1, or a
-  region that no exercise can reach
+                           exercises of both files and each exercise's search aliases; every cardio
+                           exercise carries its default effort (cardio.json), plus the added cardio activities
+- appData/targets.json   - the target presets (targetPresets.json: per-region offsets, cardio minutes per
+                           light, key exercises) and the cardio model (cardio.json: efforts, lights, the
+                           default weekly target)
+- loud checks: exits non-zero on an unknown exercise or region id, a share outside 0..1, a
+  region that no exercise can reach, a preset offset out of range or missing a region, an unknown
+  key exercise or effort, or a cardio exercise without a default effort
 
 run:  python tools/appData/buildAppData.py      (needs Pillow, numpy, scipy for the bake; paths found from this file)
 """
@@ -152,6 +157,14 @@ shareDecimals = 3
 # version stamped into both files - bump when the format changes (2 = baked maps + tap shapes)
 dataVersion = 2
 
+# target presets: the range of a region offset, the longest summary line, the kinds
+offsetMin = -12
+offsetMax = 10
+summaryMax = 90
+presetKinds = ["sport", "physique"]
+# the zones of the cardio model (z1 below the first threshold, z2 between, z3 above the second)
+cardioZones = ["z1", "z2", "z3"]
+
 ### /// PATHS ///
 
 toolDir = Path(__file__).resolve().parent
@@ -160,6 +173,8 @@ shapesPath = projectDir / "data" / "muscleShapes" / "muscleShapes.json"
 exerciseDbPath = projectDir / "data" / "freeExerciseDb" / "dist" / "exercises.json"
 curatedPath = toolDir / "curatedExercises.json"
 researchedPath = toolDir / "researchedExercises.json"
+targetPresetsPath = toolDir / "targetPresets.json"
+cardioPath = toolDir / "cardio.json"
 outDir = projectDir / "appData"
 
 forearmKinds = ["none", "grip", "direct"]
@@ -382,10 +397,11 @@ def checkForearmKind(owner, kind, shares):
         fail("%s: forearmKind '%s' but no forearms share" % (owner, kind))
 
 
-def buildExercises(database, curated, researched, regionSet):
+def buildExercises(database, curated, researched, cardio, regionSet):
     ### WHAT THIS DOES
     # every database exercise: hand-tuned shares if curated, else researched, else auto-converted;
-    # the added exercises of both files appended; aliases attached for search
+    # the added exercises of both files appended; every cardio exercise gets its default effort and
+    # the added cardio activities join; aliases attached for search
 
     exercises = []
     databaseIds = set()
@@ -475,6 +491,44 @@ def buildExercises(database, curated, researched, regionSet):
             "curated": row.get("confidence", "high") in checkedConfidences,
         })
 
+    # cardio: each one's default effort; the added activities (no heat - they light the cardio overlay)
+    effortIds = set()
+    for effort in cardio.get("efforts", []):
+        effortIds.add(effort.get("id"))
+    activityRows = cardio.get("activities", {})
+    for exerciseId, row in cardio.get("added", {}).items():
+        owner = "cardio added '%s'" % exerciseId
+        if exerciseId in databaseIds or exerciseId in addedRows:
+            fail("%s already exists - give it an effort under activities instead" % owner)
+        for field in ["name", "equipment", "effort"]:
+            if field not in row:
+                fail("%s is missing '%s'" % (owner, field))
+        exercises.append({
+            "id": exerciseId,
+            "name": row.get("name", exerciseId),
+            "equipment": row.get("equipment", missingEquipment),
+            "category": "cardio",
+            "targets": [],
+            "forearmKind": "none",
+            "curated": True,
+        })
+        activityRows = dict(activityRows)
+        activityRows[exerciseId] = row
+    for exerciseId, row in activityRows.items():
+        if row.get("effort") not in effortIds:
+            fail("cardio '%s' has the effort '%s', which is not one of %s" % (exerciseId, row.get("effort"), sorted(effortIds)))
+    for exercise in exercises:
+        if exercise["category"] != "cardio":
+            continue
+        if exercise["id"] not in activityRows:
+            fail("cardio exercise '%s' has no default effort in cardio.json" % exercise["id"])
+            continue
+        exercise["cardioEffort"] = activityRows[exercise["id"]]["effort"]
+        exercise["cardioNote"] = activityRows[exercise["id"]].get("note", "")
+    for exerciseId in activityRows:
+        if exerciseId not in databaseIds and exerciseId not in cardio.get("added", {}):
+            fail("cardio.json names '%s', which is not an exercise" % exerciseId)
+
     # search aliases (every id must exist)
     knownIds = set()
     for exercise in exercises:
@@ -491,6 +545,72 @@ def buildExercises(database, curated, researched, regionSet):
     return exercises
 
 
+def buildTargets(presetData, cardio, regionIds, exerciseIds):
+    ### WHAT THIS DOES
+    # appData/targets.json: the cardio model and every preset with its offsets checked and its cardio
+    # minutes turned from the three zones into the cardio lights
+
+    lights = cardio.get("lights", [])
+    efforts = cardio.get("efforts", [])
+    lightIds = []
+    presets = []
+
+    # the cardio model
+    for effort in efforts:
+        if effort.get("zone") not in cardioZones:
+            fail("effort '%s' has the zone '%s', not one of %s" % (effort.get("id"), effort.get("zone"), cardioZones))
+    for light in lights:
+        lightIds.append(light.get("id"))
+        for zone in cardioZones:
+            if zone not in light.get("zones", {}):
+                fail("cardio light '%s' does not say how much %s lights it" % (light.get("id"), zone))
+    for lightId in lightIds:
+        if lightId not in cardio.get("defaultTarget", {}):
+            fail("cardio defaultTarget has no minutes for '%s'" % lightId)
+
+    # the presets
+    for presetId, row in presetData.get("presets", {}).items():
+        owner = "preset '%s'" % presetId
+        offsets = row.get("offsets", {})
+        for regionId in regionIds:
+            if regionId not in offsets:
+                fail("%s has no offset for '%s'" % (owner, regionId))
+        for regionId, offset in offsets.items():
+            if regionId not in regionIds:
+                fail("%s names the unknown region '%s'" % (owner, regionId))
+            elif not isinstance(offset, int) or offset < offsetMin or offset > offsetMax:
+                fail("%s: offset %s on '%s' is not a whole number in %d..%d" % (owner, offset, regionId, offsetMin, offsetMax))
+        if row.get("kind") not in presetKinds:
+            fail("%s has the kind '%s', not one of %s" % (owner, row.get("kind"), presetKinds))
+        if len(row.get("summary", "")) > summaryMax:
+            fail("%s: summary longer than %d characters" % (owner, summaryMax))
+        for exerciseId in row.get("keyExercises", []):
+            if exerciseId not in exerciseIds:
+                fail("%s: key exercise '%s' is not an exercise" % (owner, exerciseId))
+        minutes = {}
+        for light in lights:
+            total = 0.0
+            for zone in cardioZones:
+                total += float(row.get("cardio", {}).get(zone, 0)) * float(light.get("zones", {}).get(zone, 0))
+            minutes[light.get("id")] = int(round(total))
+        presets.append({
+            "id": presetId,
+            "name": row.get("name", presetId),
+            "kind": row.get("kind", "sport"),
+            "summary": row.get("summary", ""),
+            "offsets": dict(offsets),
+            "cardio": minutes,
+            "keyExercises": list(row.get("keyExercises", [])),
+        })
+
+    return {
+        "version": dataVersion,
+        "baseline": presetData.get("baseline", 12),
+        "presets": presets,
+        "cardio": {"efforts": efforts, "lights": lights, "defaultTarget": cardio.get("defaultTarget", {})},
+    }
+
+
 ### /// MAIN ///
 
 def main():
@@ -500,7 +620,7 @@ def main():
     reach = {}
 
     # sources
-    for path in [shapesPath, exerciseDbPath, curatedPath, researchedPath]:
+    for path in [shapesPath, exerciseDbPath, curatedPath, researchedPath, targetPresetsPath, cardioPath]:
         if not path.exists():
             print("MISSING source file: %s" % path)
             if path == exerciseDbPath:
@@ -514,11 +634,19 @@ def main():
         curated = json.load(handle, object_pairs_hook=rejectDuplicateKeys)
     with open(researchedPath, encoding="utf-8") as handle:
         researched = json.load(handle, object_pairs_hook=rejectDuplicateKeys)
+    with open(targetPresetsPath, encoding="utf-8") as handle:
+        presetData = json.load(handle, object_pairs_hook=rejectDuplicateKeys)
+    with open(cardioPath, encoding="utf-8") as handle:
+        cardio = json.load(handle, object_pairs_hook=rejectDuplicateKeys)
 
     # build
     muscles, regionIds = buildMuscles(shapes)
     regionSet = set(regionIds)
-    exercises = buildExercises(database, curated, researched, regionSet)
+    exercises = buildExercises(database, curated, researched, cardio, regionSet)
+    exerciseIds = set()
+    for exercise in exercises:
+        exerciseIds.add(exercise["id"])
+    targets = buildTargets(presetData, cardio, regionIds, exerciseIds)
 
     # every region must be reachable by at least one exercise
     for regionId in regionIds:
@@ -544,6 +672,8 @@ def main():
     exercisesPath = outDir / "exercises.json"
     writeJson(musclesPath, muscles)
     writeJson(exercisesPath, {"version": dataVersion, "exercises": exercises})
+    targetsPath = outDir / "targets.json"
+    writeJson(targetsPath, targets)
 
     # summary
     curatedCount = 0
@@ -555,10 +685,11 @@ def main():
             zeroCount += 1
     print("buildAppData OK")
     print("  regions: %d   bodies: %s" % (len(regionIds), ", ".join(sorted(muscles["bodies"].keys()))))
-    addedCount = len(curated.get("added", {})) + len(researched.get("added", {}))
+    addedCount = len(curated.get("added", {})) + len(researched.get("added", {})) + len(cardio.get("added", {}))
     print("  exercises: %d  (database %d + added %d)" % (len(exercises), len(database), addedCount))
     print("  checked data: %d   rough data: %d   zero-heat (stretching/cardio): %d" % (curatedCount, len(exercises) - curatedCount - zeroCount, zeroCount))
-    print("  muscles.json %d KB   exercises.json %d KB" % (musclesPath.stat().st_size // 1024, exercisesPath.stat().st_size // 1024))
+    print("  target presets: %d   cardio lights: %d   efforts: %d" % (len(targets["presets"]), len(targets["cardio"]["lights"]), len(targets["cardio"]["efforts"])))
+    print("  muscles.json %d KB   exercises.json %d KB   targets.json %d KB" % (musclesPath.stat().st_size // 1024, exercisesPath.stat().st_size // 1024, targetsPath.stat().st_size // 1024))
     print("  exercises reaching each region:")
     line = "   "
     for index, regionId in enumerate(regionIds):
