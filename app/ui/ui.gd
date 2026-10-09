@@ -21,11 +21,6 @@ const pressUpSeconds: float = 0.16
 # icon button size (touch target) and icon size inside it
 const iconButtonSize: float = 48.0
 const iconSize: float = 22.0
-# status tag: text size, padding, background strength
-const tagFontSize: int = 12
-const tagPadH: int = 9
-const tagPadV: int = 3
-const tagFillAlpha: float = 0.2
 # regions named in an exercise's one-line summary
 const metaRegionCount: int = 3
 
@@ -40,6 +35,7 @@ static func label(text: String, variation: String = "") -> Label:
 	made.text = text
 	if variation != "":
 		made.theme_type_variation = variation
+	made.uppercase = AppTheme.style.upperCase(variation)
 	return made
 
 
@@ -118,20 +114,10 @@ static func tag(text: String, tint: Color, upperCase: bool = true) -> PanelConta
 	# a small rounded pill with coloured text on a tint of the same colour (status, "rough data")
 
 	var pill := PanelContainer.new()
-	var box := StyleBoxFlat.new()
-	var fill: Color = tint
-	fill.a = tagFillAlpha
-	box.bg_color = fill
-	box.set_corner_radius_all(8)
-	box.content_margin_left = tagPadH
-	box.content_margin_right = tagPadH
-	box.content_margin_top = tagPadV
-	box.content_margin_bottom = tagPadV
-	pill.add_theme_stylebox_override("panel", box)
 	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var caption: Label = label("")
-	caption.add_theme_font_size_override("font_size", tagFontSize)
+	caption.add_theme_font_size_override("font_size", AppTheme.style.tagFontSize)
 	caption.add_theme_font_override("font", AppTheme.boldFont())
 	pill.add_child(caption)
 	retag(pill, text, tint, upperCase)
@@ -140,11 +126,8 @@ static func tag(text: String, tint: Color, upperCase: bool = true) -> PanelConta
 
 static func retag(pill: PanelContainer, text: String, tint: Color, upperCase: bool = true) -> void:
 	# new text and colour for a pill made by tag() (rows that are updated instead of rebuilt)
-	var box: StyleBoxFlat = pill.get_theme_stylebox("panel")
-	var fill: Color = tint
-	fill.a = tagFillAlpha
-	box.bg_color = fill
 	var shown: String = text
+	pill.add_theme_stylebox_override("panel", AppTheme.box("tag", tint))
 	if upperCase:
 		shown = text.to_upper()
 	var caption: Label = pill.get_child(0)

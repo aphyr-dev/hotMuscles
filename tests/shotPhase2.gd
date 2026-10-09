@@ -6,6 +6,9 @@ extends SceneTree
 ## the screens' public functions and saves <outFolder>/phase2_<theme>_<body>_<shot>.png
 ## passes: Ember + male, Light + female (every screen), Ocean + male (a few), then the first-launch
 ## setup steps; [only] = a pass name ("ember", "light", "ocean", "setup") to run just that one
+## look pass: `-- <outFolder> look <style script res path> <palette,palette,...>` puts that style module
+##   on the app (registered or not - for judging a new style) and shoots the main screens once per
+##   palette as look_<style file>_<palette>_<shot>.png; a style that does not load fails the run
 ## the throwaway folder is deleted at the end; prints each file it saved
 
 ### /// TUNING ///
@@ -48,6 +51,20 @@ func _run() -> void:
 	appTheme = root.get_node("/root/AppTheme")
 	folder = "user://%s%d" % [folderPrefix, OS.get_process_id()]
 
+	if only == "look":
+		if args.size() < 4:
+			print("usage: ... -- <outFolder> look <style script res path> <palette,palette,...>")
+			quit(2)
+			return
+		var ok: bool = await _lookPass(args[2], args[3].split(","))
+		_closeApp()
+		_removeFolder(folder)
+		print("SHOTS DONE (%d saved)" % saved)
+		if ok:
+			quit(0)
+		else:
+			quit(1)
+		return
 	if only == "" or only == "ember":
 		await _themePass("ember", "male", true)
 	if only == "" or only == "light":
@@ -260,6 +277,63 @@ func _themePass(themeId: String, body: String, everything: bool) -> void:
 	app.goBack()
 	await _wait(settleSeconds)
 	app.setSafeInsets(0.0, 0.0)
+
+
+func _lookPass(stylePath: String, paletteIds: PackedStringArray) -> bool:
+	### WHAT THIS DOES
+	# one style module in each palette asked for: week, balance, region sheet, workout, picker, settings
+
+	var made: Variant = load("res://app/looks/looks.gd").loadStyle(stylePath)
+	if made == null:
+		print("LOOK FAILED: style %s does not load" % stylePath)
+		return false
+	for paletteId in paletteIds:
+		if not appTheme.themeIds().has(paletteId):
+			print("LOOK FAILED: no palette %s" % paletteId)
+			return false
+		prefix = "look_%s_%s" % [stylePath.get_file().get_basename(), paletteId]
+		_seed(paletteId, "male")
+		appTheme.useStyleModule(made)
+		storage.setProfile("style", made.styleId)
+		await _openApp()
+		var week: Node = app.weekScreen()
+		while week.replaying():
+			await _wait(0.1)
+		await _wait(blendSeconds)
+		await _grab("week")
+		week.scroll.scrollTo(560.0)
+		await _wait(0.3)
+		await _grab("week_balance")
+		week.scroll.scrollTo(0.0)
+		week.openRegion("rearDelt")
+		await _wait(settleSeconds)
+		await _grab("region_sheet")
+		app.goBack()
+		await _wait(settleSeconds)
+		var workout: Node = week.startWorkout()
+		await _wait(settleSeconds)
+		workout.addExercises(["Bent_Over_Barbell_Row", "Wide-Grip_Lat_Pulldown", "Face_Pull", "Barbell_Curl"])
+		workout.setSets(0, 4)
+		workout.setSets(1, 3)
+		workout.setGrips(1, true)
+		workout.setSets(2, 0)
+		await _wait(blendSeconds)
+		await _grab("workout")
+		var picker: Node = workout.openPicker()
+		await _wait(settleSeconds)
+		picker.toggleExercise("Seated_Cable_Rows")
+		picker.toggleExercise("Reverse_Flyes")
+		await _wait(0.4)
+		await _grab("picker")
+		app.goBack()
+		await _wait(settleSeconds)
+		workout.discard()
+		await _wait(settleSeconds)
+		app.openSettings()
+		await _wait(settleSeconds)
+		await _grab("settings")
+		_closeApp()
+	return true
 
 
 func _setupPass() -> void:

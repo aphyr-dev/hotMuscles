@@ -8,7 +8,10 @@ extends Control
 ## - rebuild()             the theme changed - rebuild anything with colours set in code
 ## - buildFrame(title, backText) -> {page, header, content, bottom}
 ##       a background page with a header row (back button, title), a content box that fills the
-##       middle and a bottom bar box; screens put their scroll list in content, main buttons in bottom
+##       middle and a bottom bar box; screens put their scroll list in content, main buttons in bottom;
+##       the current style may decorate it (decorateFrame)
+## - decorateFrame(parts)  hands a page's parts to the style's decorateFrame (screens that build their
+##       own page call it themselves)
 ## - makeScroll(parent) -> KineticScroll with a padded column inside (returns the column via meta "column")
 
 ### /// TUNING ///
@@ -87,7 +90,14 @@ func buildFrame(title: String, backText: String) -> Dictionary:
 	column.add_child(content)
 	var bottom: VBoxContainer = Ui.vbox(8)
 	column.add_child(Ui.margin(bottom, pagePad, 8, pagePad, 12))
-	return {"page": page, "header": header, "content": content, "bottom": bottom}
+	var parts: Dictionary = {"page": page, "header": header, "content": content, "bottom": bottom, "titleLabel": titleLabel}
+	decorateFrame(parts)
+	return parts
+
+
+func decorateFrame(parts: Dictionary) -> void:
+	parts["screen"] = self
+	AppTheme.style.decorateFrame(parts, AppTheme.palette)
 
 
 func makeScroll(parent: Control) -> KineticScroll:

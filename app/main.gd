@@ -49,6 +49,7 @@ var firstFrameMs: int = -1
 var mainEnterMs: int = -1
 var appShareMs: int = -1
 var pendingShow: Callable = Callable()
+var builtStyleId: String = ""
 var pendingFrame: int = 0
 
 
@@ -103,8 +104,9 @@ func _build() -> void:
 	overlayLayer.add_child(toast)
 
 
-func startUp() -> void:
-	# first screens from the saved state
+func startUp(replay: bool = true) -> void:
+	# first screens from the saved state; replay = the week replays on the body (app start)
+	builtStyleId = AppTheme.currentStyleId
 	_flushPending()
 	for sheet in overlayLayer.get_children():
 		if sheet is BottomSheet:
@@ -119,7 +121,7 @@ func startUp() -> void:
 	push(week, false)
 	if Storage.hasCurrentWorkout():
 		push(WorkoutScreen.createLive(), false)
-	else:
+	elif replay:
 		week.startReplay()
 
 
@@ -432,6 +434,22 @@ func _unhandled_input(event: InputEvent) -> void:
 ### /// THEME ///
 
 func _onThemeChanged(_themeId: String) -> void:
+	### WHAT THIS DOES
+	# a new palette: each screen recolours itself; a new style: every screen is built again (a style
+	# can decorate a page's frame, which is only made once) and Settings opens again on top
 	# deferred: the theme can change from inside a button press on the screen being rebuilt
+
+	if builtStyleId != "" and builtStyleId != AppTheme.currentStyleId:
+		builtStyleId = AppTheme.currentStyleId
+		call_deferred("_restyle")
+		return
+	builtStyleId = AppTheme.currentStyleId
 	for screen in screens:
 		screen.call_deferred("rebuild")
+
+
+func _restyle() -> void:
+	var settingsOpen: bool = top() is SettingsScreen
+	startUp(false)
+	if settingsOpen and not screens.is_empty() and screens[0] is WeekScreen:
+		push(SettingsScreen.new(), false)

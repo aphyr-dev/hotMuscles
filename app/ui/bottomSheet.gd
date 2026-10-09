@@ -36,7 +36,6 @@ var closeFlingSpeed: float = 900.0
 var settleSeconds: float = 0.2
 # grab handle size and colour strength
 var handleSize: Vector2 = Vector2(44.0, 5.0)
-var handleAlpha: float = 0.3
 # gap between body rows
 var bodyGap: int = 12
 
@@ -143,14 +142,7 @@ func _ready() -> void:
 
 
 func _drawHandle(handle: Control) -> void:
-	var tint: Color = Color.WHITE
-	if has_theme_color("text", "App"):
-		tint = get_theme_color("text", "App")
-	tint.a = handleAlpha
-	var box := StyleBoxFlat.new()
-	box.bg_color = tint
-	box.set_corner_radius_all(int(handleSize.y * 0.5))
-	handle.draw_style_box(box, Rect2((handle.size.x - handleSize.x) * 0.5, 0.0, handleSize.x, handleSize.y))
+	handle.draw_style_box(AppTheme.box("sheetHandle"), Rect2((handle.size.x - handleSize.x) * 0.5, 0.0, handleSize.x, handleSize.y))
 
 
 ### /// CONTENT ///

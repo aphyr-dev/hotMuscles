@@ -19,8 +19,6 @@ var slideDistance: float = 40.0
 # side margin from the screen edge and distance from the screen bottom
 var sideMargin: float = 14.0
 var bottomMargin: float = 100.0
-# corner rounding and padding
-var radius: int = 16
 
 ### /// STATE ///
 
@@ -64,20 +62,12 @@ func _applyStyle() -> void:
 	if styling or not has_theme_color("text", "App"):
 		return
 	styling = true
-	var box := StyleBoxFlat.new()
-	box.bg_color = get_theme_color("text", "App")
-	box.set_corner_radius_all(radius)
-	box.content_margin_left = 18
-	box.content_margin_right = 8
-	box.content_margin_top = 6
-	box.content_margin_bottom = 6
-	box.shadow_color = Color(0.0, 0.0, 0.0, 0.3)
-	box.shadow_size = 8
+	var box: StyleBox = AppTheme.box("toast")
 	add_theme_stylebox_override("panel", box)
 	messageLabel.add_theme_color_override("font_color", get_theme_color("bg", "App"))
 	# the action in the accent, pushed away from the toast's own colour so it reads
 	var actionColour: Color = get_theme_color("accent", "App")
-	if box.bg_color.get_luminance() > 0.5:
+	if get_theme_color("text", "App").get_luminance() > 0.5:
 		actionColour = actionColour.darkened(0.2)
 	else:
 		actionColour = actionColour.lightened(0.3)

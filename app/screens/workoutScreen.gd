@@ -27,9 +27,6 @@ const mainButtonHeight: float = 58.0
 # sets number in the stepper
 const stepperFontSize: int = 22
 const stepperNumberWidth: float = 40.0
-# planned rows: outline width and how see-through the card is
-const plannedOutlinePx: int = 2
-const plannedFillAlpha: float = 0.45
 # sets the ghost uses for a planned (0-set) exercise
 const plannedGhostSets: int = 1
 # most sets the stepper allows
@@ -439,18 +436,7 @@ func _updateRow(parts: Dictionary, entry: Dictionary) -> void:
 	if parts["grips"] != null:
 		parts["grips"].set_pressed_no_signal(bool(entry["grips"]))
 	if planned:
-		var box := StyleBoxFlat.new()
-		var fill: Color = Ui.colour("surface")
-		fill.a = plannedFillAlpha
-		box.bg_color = fill
-		box.border_color = Ui.colour("ghost")
-		box.set_border_width_all(plannedOutlinePx)
-		box.set_corner_radius_all(AppTheme.rowRadius)
-		box.content_margin_left = AppTheme.rowPadH
-		box.content_margin_right = AppTheme.rowPadH
-		box.content_margin_top = AppTheme.rowPadV
-		box.content_margin_bottom = AppTheme.rowPadV
-		row.card.add_theme_stylebox_override("panel", box)
+		row.card.add_theme_stylebox_override("panel", AppTheme.box("planned", Ui.colour("ghost")))
 	else:
 		row.card.remove_theme_stylebox_override("panel")
 

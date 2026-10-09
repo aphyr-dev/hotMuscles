@@ -5,3 +5,9 @@ builds/
 
 # third-party clone with its own history - its version is noted in data/sources.md
 data/freeExerciseDb/
+
+# research working files (proposals from the data research round; folded into tools/appData then deleted)
+data/research/
+
+# look review rounds: candidate style modules and their screenshots (never shipped; the pick moves to app/looks/styles/)
+review/

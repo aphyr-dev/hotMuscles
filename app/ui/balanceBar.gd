@@ -62,8 +62,4 @@ func _draw() -> void:
 
 
 func _bar(rect: Rect2, fill: Color) -> void:
-	var box := StyleBoxFlat.new()
-	box.bg_color = fill
-	box.set_corner_radius_all(int(barHeight * 0.5))
-	box.anti_aliasing = true
-	draw_style_box(box, rect)
+	draw_style_box(AppTheme.box("balance", fill), rect)

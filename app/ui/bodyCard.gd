@@ -201,6 +201,7 @@ func _draw() -> void:
 	var box: StyleBox = get_theme_stylebox("panel", "CardPanel")
 	if box != null:
 		draw_style_box(box, Rect2(Vector2.ZERO, size))
+	AppTheme.style.drawCardChrome(self, Rect2(Vector2.ZERO, size), AppTheme.palette)
 
 
 ### /// HANDLERS ///

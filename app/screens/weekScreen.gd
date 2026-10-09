@@ -111,7 +111,8 @@ func _build() -> void:
 	header.add_child(titles)
 	greetingLabel = Ui.label("", "MutedLabel")
 	titles.add_child(greetingLabel)
-	titles.add_child(Ui.label("This week", "HeaderLabel"))
+	var pageTitle: Label = Ui.label("This week", "HeaderLabel")
+	titles.add_child(pageTitle)
 	statsLabel = Ui.wrapLabel("", "MutedLabel")
 	titles.add_child(statsLabel)
 	var settingsButton: Button = Ui.iconButton("gear", "Button", "textMuted")
@@ -143,6 +144,7 @@ func _build() -> void:
 	startButton.custom_minimum_size.y = mainButtonHeight
 	layout.add_child(Ui.margin(startButton, pagePad, 8, pagePad, 12))
 	_applyTab()
+	decorateFrame({"page": page, "header": header, "content": scroll, "bottom": startButton.get_parent(), "titleLabel": pageTitle})
 
 
 func rebuild() -> void:
@@ -522,14 +524,7 @@ func openRegion(regionId: String) -> BottomSheet:
 func _statTile(big: String, small: String, extra: Control) -> PanelContainer:
 	var tile := PanelContainer.new()
 	tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var box := StyleBoxFlat.new()
-	box.bg_color = Ui.colour("surfaceHi")
-	box.set_corner_radius_all(14)
-	box.content_margin_left = 12
-	box.content_margin_right = 8
-	box.content_margin_top = 10
-	box.content_margin_bottom = 10
-	tile.add_theme_stylebox_override("panel", box)
+	tile.add_theme_stylebox_override("panel", AppTheme.box("tile"))
 	var stack: VBoxContainer = Ui.vbox(4)
 	tile.add_child(stack)
 	if extra != null:

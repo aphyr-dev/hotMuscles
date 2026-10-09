@@ -33,8 +33,6 @@ var swipeReturnSeconds: float = 0.2
 # press feedback: scale while held and how fast it changes
 var pressedScale: float = 0.975
 var pressSeconds: float = 0.08
-# outline drawn when selected
-var selectedOutlinePx: float = 2.0
 # swipe action label size
 var actionFontSize: int = 15
 
@@ -116,7 +114,6 @@ func _draw() -> void:
 	### WHAT THIS DOES
 	# the swipe action revealed behind the sliding card, and the selected outline
 
-	var radius: float = 16.0
 	if absf(swipeOffset) > 1.0:
 		var action: Dictionary = swipeRight
 		if swipeOffset < 0.0:
@@ -125,10 +122,7 @@ func _draw() -> void:
 			var fill: Color = action.get("colour", Color.GRAY)
 			var strength: float = clampf(absf(swipeOffset) / swipeTriggerPx, 0.35, 1.0)
 			fill.a = strength
-			var back := StyleBoxFlat.new()
-			back.bg_color = fill
-			back.set_corner_radius_all(int(radius))
-			draw_style_box(back, Rect2(Vector2.ZERO, size))
+			draw_style_box(AppTheme.box("swipe", fill), Rect2(Vector2.ZERO, size))
 			var font: Font = get_theme_default_font()
 			var text: String = str(action.get("text", ""))
 			var textSize: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, actionFontSize)
@@ -146,19 +140,7 @@ func _draw() -> void:
 func _drawRing() -> void:
 	if not selected:
 		return
-	var outline := StyleBoxFlat.new()
-	outline.draw_center = false
-	outline.border_color = _accent()
-	outline.set_border_width_all(int(selectedOutlinePx))
-	outline.set_corner_radius_all(16)
-	outline.anti_aliasing = true
-	ring.draw_style_box(outline, Rect2(Vector2.ZERO, ring.size))
-
-
-func _accent() -> Color:
-	if has_theme_color("accent", "App"):
-		return get_theme_color("accent", "App")
-	return Color.ORANGE
+	ring.draw_style_box(AppTheme.box("rowRing"), Rect2(Vector2.ZERO, ring.size))
 
 
 ### /// INPUT ///

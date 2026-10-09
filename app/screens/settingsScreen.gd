@@ -2,7 +2,9 @@ class_name SettingsScreen
 extends AppScreen
 ## SettingsScreen - profile, how the week is coloured, workout defaults, backup
 ## what this offers (every change saves at once and the other screens follow)
-## - profile: setName(text), setBody("male"/"female"), setTheme(id), redoSetup()
+## - profile: setName(text), setBody("male"/"female"), redoSetup()
+## - look: setStyle(id) (shapes and feel - the screens are built again), setTheme(id) (palette, a
+##   sideways strip of every palette)
 ## - heat map: setGradient(id), setHideUntouched(on)
 ## - workouts: setNewExerciseSets(0 / 1), setDefaultView("front"/"back"/"both")
 ## - backup: exportBackup(copyToClipboard) -> {text, path} (clipboard + user://backups),
@@ -17,6 +19,7 @@ const rowGap: int = 10
 var nameEdit: LineEdit = null
 var bodyChoice: Segmented = null
 var themeChoice: Segmented = null
+var styleChoice: Segmented = null
 var gradientChoice: Segmented = null
 var gradientBar: GradientBar = null
 var untouchedChoice: Segmented = null
@@ -58,14 +61,27 @@ func _fill() -> void:
 	profileBox.add_child(nameEdit)
 	profileBox.add_child(Ui.label("Body drawing", "MutedLabel"))
 	bodyChoice = _choice(profileBox, [["male", "Male"], ["female", "Female"]], str(Storage.profile["body"]), setBody)
-	profileBox.add_child(Ui.label("App theme", "MutedLabel"))
-	var themes: Array = []
-	for themeId in AppTheme.themeIds():
-		themes.append([themeId, AppTheme.themeName(themeId)])
-	themeChoice = _choice(profileBox, themes, str(Storage.profile["theme"]), setTheme)
 	var redo: Button = Ui.button("Run the first-launch setup again", "FlatButton", redoSetup)
 	redo.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	profileBox.add_child(redo)
+
+	# look: style, then palette
+	var lookBox: VBoxContainer = _section("Look")
+	lookBox.add_child(Ui.label("Style", "MutedLabel"))
+	var styleOptions: Array = []
+	for styleId in AppTheme.styleIds():
+		styleOptions.append([styleId, AppTheme.styleName(styleId)])
+	styleChoice = _choice(lookBox, styleOptions, AppTheme.currentStyleId, setStyle)
+	lookBox.add_child(Ui.label("Colours", "MutedLabel"))
+	var themes: Array = []
+	for themeId in AppTheme.themeIds():
+		themes.append([themeId, AppTheme.themeName(themeId)])
+	var strip := HScrollStrip.new()
+	lookBox.add_child(strip)
+	themeChoice = Segmented.new()
+	strip.add_child(themeChoice)
+	themeChoice.setOptions(themes, AppTheme.currentId)
+	themeChoice.changed.connect(setTheme)
 
 	# heat map
 	var heatBox: VBoxContainer = _section("Heat map")
@@ -137,6 +153,11 @@ func setName(text: String) -> void:
 func setBody(bodyName: String) -> void:
 	bodyChoice.select(bodyName, false)
 	Storage.setProfile("body", bodyName)
+
+
+func setStyle(styleId: String) -> void:
+	# a new style builds every screen again (AppRoot._restyle) and opens Settings on top again
+	Storage.setProfile("style", styleId)
 
 
 func setTheme(themeId: String) -> void:

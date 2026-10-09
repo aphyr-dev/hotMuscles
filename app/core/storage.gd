@@ -2,7 +2,7 @@ extends Node
 ## Storage (autoload) - everything the user makes, saved as JSON under user:// on every change
 ## what this offers
 ## sections (read them, change them only through the functions below so they save):
-## - profile       {name, body "male"/"female", gradient, theme, setupDone}
+## - profile       {name, body "male"/"female", gradient, theme (palette id), style, setupDone}
 ## - settings      {hideUntouched, newExerciseSets 0/1,
 ##                  defaultView "front"/"back"/"both", rangeWeek, rangeWorkout,
 ##                  workoutShowWeek (the workout body adds the last 7 days)}
@@ -60,7 +60,7 @@ func _enter_tree() -> void:
 ### /// DEFAULTS ///
 
 func defaultProfile() -> Dictionary:
-	return {"name": "", "body": "male", "gradient": "infrared", "theme": "ember", "setupDone": false}
+	return {"name": "", "body": "male", "gradient": "infrared", "theme": "ember", "style": "modern", "setupDone": false}
 
 
 func defaultSettings() -> Dictionary:
