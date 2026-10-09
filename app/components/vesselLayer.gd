@@ -38,7 +38,7 @@ const pairOffsetShare: float = 0.0045
 const smoothSteps: int = 6
 # the travelling pulse: share of a vessel per second, its dot size (x line width), and its glow size
 const pulseSpeed: float = 0.35
-const pulseDotScale: float = 2.0
+const pulseDotScale: float = 1.3
 const pulseGlowScale: float = 4.0
 # the heart (front view): size as a share of the figure height, and seconds per beat
 const heartSizeShare: float = 0.012
