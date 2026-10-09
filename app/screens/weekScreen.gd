@@ -41,7 +41,7 @@ const pageTitles: Dictionary = {"day": "Today", "week": "This week", "month": "T
 const cardTitles: Dictionary = {"day": "Sets today", "week": "Sets this week", "month": "Sets per week · average", "year": "Sets per week · average"}
 const periodWords: Dictionary = {"day": "today", "week": "in the last 7 days", "month": "in the last 30 days", "year": "in the last 12 months"}
 const cardHint: String = "Tap a muscle for details · pinch to zoom"
-const targetsCardTitle: String = "Sets vs your targets"
+const targetsCardTitle: String = "Sets vs targets"
 # with targets on, a muscle counts as "over" past this many times its target
 const targetOverShare: float = 2.0
 # the research's one-line honesty note under the cardio panel
@@ -386,6 +386,10 @@ func _applyOverlays(animate: bool) -> void:
 		return
 	bodyCard.setTitle(cardTitle())
 	bodyCard.setHint(cardHintText())
+	if targetsOn():
+		bodyCard.setScaleMode("target")
+	else:
+		bodyCard.setScaleMode("sets")
 	bodyCard.setHeat(displayHeat(shownHeat), animate)
 	if cardioOn():
 		bodyCard.setVessels(cardioLevels())
@@ -407,7 +411,10 @@ func cardHintText() -> String:
 	if cardioOn():
 		var parts: Array = []
 		for light in AppData.cardioLights:
-			parts.append("%s %d/%d min" % [str(light["name"]).get_slice(" ", 0), int(roundf(float(cardioMinutes.get(light["id"], 0.0)))), int(cardioTargets.get(light["id"], 0))])
+			var colourWord: String = str(light["colour"]).capitalize()
+			var effortWord: String = str(light["name"]).get_slice(" ", 0).to_lower()
+			var done: int = int(roundf(float(cardioMinutes.get(light["id"], 0.0))))
+			parts.append("%s = %s %d/%d min" % [colourWord, effortWord, done, int(cardioTargets.get(light["id"], 0))])
 		lines.append(" · ".join(parts))
 	if lines.is_empty():
 		return cardHint
@@ -536,19 +543,37 @@ func _fillCardioPanel() -> void:
 		var wanted: float = float(cardioTargets.get(light["id"], 0.0))
 		var top: HBoxContainer = Ui.hbox(8)
 		cardioBox.add_child(top)
-		var nameLabel: Label = Ui.label(str(light["name"]), "MutedLabel")
+		var nameLabel: Label = Ui.label("%s (%s)" % [light["name"], light["colour"]], "BoldLabel")
+		nameLabel.add_theme_color_override("font_color", _lightColour(str(light["colour"])))
 		nameLabel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		top.add_child(nameLabel)
 		top.add_child(Ui.label("%d / %d min" % [int(roundf(minutes)), int(wanted)], "BoldLabel"))
 		cardioBox.add_child(_cardioBar(minutes / maxf(wanted, 1.0), _lightColour(str(light["colour"]))))
+
+	# the health line: a bar toward the WHO minimum (then toward the extra-benefit end) and a verdict
 	var health: float = HeatEngine.healthMinutes(cardioMinutes)
-	var verdict: String = "below the WHO minimum of %d" % int(HeatEngine.healthMinimum)
+	var goal: float = HeatEngine.healthMinimum
+	var verdict: String = "Below the WHO minimum"
+	var verdictColour: Color = Ui.colour("cold").lerp(Ui.colour("text"), 0.35)
 	if health >= HeatEngine.healthExtra:
-		verdict = "past %d - the extra-benefit end" % int(HeatEngine.healthExtra)
+		goal = HeatEngine.healthExtra
+		verdict = "Past the extra-benefit end"
+		verdictColour = Ui.colour("neutral")
 	elif health >= HeatEngine.healthMinimum:
-		verdict = "meets the WHO minimum of %d" % int(HeatEngine.healthMinimum)
-	cardioBox.add_child(Ui.wrapLabel("Health minutes (easy + 2 × hard): %d · %s" % [int(roundf(health)), verdict], "MutedLabel"))
-	cardioBox.add_child(Ui.wrapLabel(cardioNote, "FaintLabel"))
+		goal = HeatEngine.healthExtra
+		verdict = "Meets the WHO minimum · %d for extra benefit" % int(HeatEngine.healthExtra)
+		verdictColour = Ui.colour("neutral")
+	var healthTop: HBoxContainer = Ui.hbox(8)
+	cardioBox.add_child(healthTop)
+	var healthName: Label = Ui.label("Health minutes", "MutedLabel")
+	healthName.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	healthTop.add_child(healthName)
+	healthTop.add_child(Ui.label("%d / %d" % [int(roundf(health)), int(goal)], "BoldLabel"))
+	cardioBox.add_child(_cardioBar(health / goal, Ui.colour("neutral")))
+	var verdictLabel: Label = Ui.wrapLabel("%s (easy + 2 × hard)" % verdict, "")
+	verdictLabel.add_theme_color_override("font_color", verdictColour)
+	cardioBox.add_child(verdictLabel)
+	cardioBox.add_child(Ui.wrapLabel(cardioNote, "MutedLabel"))
 
 
 func _lightColour(colourName: String) -> Color:

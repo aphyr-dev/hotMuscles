@@ -59,6 +59,9 @@ var sliderThickness: int = 8
 # how much the bold text is thickened - the built-in font has no real bold
 var boldStrength: float = 0.6
 
+# the cardio vessels: flat crisp lines (false) or glassy tubes with a soft glow (true)
+var glassVessels: bool = false
+
 
 ### /// COLOURS ///
 

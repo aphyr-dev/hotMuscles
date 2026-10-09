@@ -147,14 +147,19 @@ func _build() -> void:
 	filterChip.toggle_mode = true
 	filterChip.button_pressed = true
 	filterRow.add_child(filterChip)
-	var why: Label = Ui.label("best match first · hold a muscle to add more", "FaintLabel")
+	# the hint shrinks (and trims) rather than widen the page past the phone
+	var why: Label = Ui.label("hold a muscle to add more", "FaintLabel")
 	why.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	why.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	why.clip_text = true
+	why.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	why.custom_minimum_size.x = 40.0
 	filterRow.add_child(why)
 	list = makeScroll(exercisesPanel)
 	listBox = list.get_meta("column")
 	listBox.add_theme_constant_override("separation", 8)
 	list.scrolled.connect(_onListScrolled)
-	countLabel = Ui.label("", "FaintLabel")
+	countLabel = Ui.wrapLabel("", "FaintLabel")
 	listBox.add_child(countLabel)
 
 	# templates tab
@@ -506,22 +511,25 @@ func refreshList(keepScroll: bool = false) -> void:
 	var muscleWord: String = "muscles"
 	if orderCount == 1:
 		muscleWord = "muscle"
+	var found: String = "%d exercises" % results.size()
+	if results.size() == 1:
+		found = "1 exercise"
 	if results.is_empty():
 		countLabel.text = "Nothing matches - try fewer words or clear a filter."
 	elif regionFilters.size() > 0 and pickingSeveral:
-		countLabel.text = "%d exercises reach %s · tap or hold more muscles to add them" % [results.size(), _filterNames()]
+		countLabel.text = "%s hit %s · tap more muscles to add them" % [found, _filterNames()]
 	elif regionFilters.size() > 0:
-		countLabel.text = "%d exercises reach %s · tap a row to tick it" % [results.size(), _filterNames()]
+		countLabel.text = "%s hit %s · tap a row to tick it" % [found, _filterNames()]
 	elif orderMode == "unused" and orderCount == 0:
-		countLabel.text = "%d exercises · no unused muscles this week" % results.size()
+		countLabel.text = "%s · no unused muscles this week" % found
 	elif orderMode == "unused":
-		countLabel.text = "%d exercises · %d unused %s first" % [results.size(), orderCount, muscleWord]
+		countLabel.text = "%s · %d unused %s first" % [found, orderCount, muscleWord]
 	elif orderMode == "target" and orderCount == 0:
-		countLabel.text = "%d exercises · every muscle is on target this week" % results.size()
+		countLabel.text = "%s · every muscle is on target this week" % found
 	elif orderMode == "target":
-		countLabel.text = "%d exercises · %d %s below target first" % [results.size(), orderCount, muscleWord]
+		countLabel.text = "%s · %d %s below target first" % [found, orderCount, muscleWord]
 	else:
-		countLabel.text = "%d exercises · tap to tick · hold or swipe to star / hide" % results.size()
+		countLabel.text = "%s · tap to tick · hold or swipe to star / hide" % found
 
 	rowsWanted = pageSize
 	if keepScroll:
@@ -642,11 +650,11 @@ func _exerciseRow(exercise: Dictionary) -> TapRow:
 	if resultShares.has(exerciseId):
 		tags.add_child(Ui.tag("× %s on %s" % [Ui.formatSets(resultShares[exerciseId]), _filterNames()], Ui.colour("accent"), false))
 	elif orderShares.has(exerciseId) and orderMode == "target":
-		tags.add_child(Ui.tag("× %s below target" % Ui.formatSets(orderShares[exerciseId]), Ui.colour("accent"), false))
+		tags.add_child(Ui.tag("× %s for below-target" % Ui.formatSets(orderShares[exerciseId]), Ui.colour("accent"), false))
 	elif orderShares.has(exerciseId):
 		tags.add_child(Ui.tag("× %s on unused" % Ui.formatSets(orderShares[exerciseId]), Ui.colour("accent"), false))
 	for presetName in presetTags.get(exerciseId, []):
-		tags.add_child(Ui.tag(presetName, Ui.colour("neutral"), false))
+		tags.add_child(Ui.tag(presetName, Ui.colour("text"), false))
 	if not bool(exercise.get("curated", false)):
 		tags.add_child(Ui.tag("rough data", Ui.colour("textMuted")))
 	if bool(pref["hidden"]):

@@ -99,13 +99,14 @@ Big, friendly, few steps, a live preview of the body in the chosen gradient and 
 - **One-tap overlays** under the body (owner, 2026-10-10), each chip shown only when it has something
   to show, both remembered, both can be on together:
   - **Targets** (a target preset is on): each muscle drawn as its share of its target (at target = the
-    hot end; muscles without a target stay plain), title "Sets vs your targets", the hint counts the
-    muscles on target, the balance rows use the targets (over = more than 2x), the region sheet shows
+    hot end; muscles without a target stay plain), title "Sets vs targets", the legend reads 0 / 50% / target / 2x, the hint counts
+    the muscles on target, the balance rows use the targets (over = more than 2x), the region sheet shows
     "your target".
   - **Cardio** (once any cardio was logged, per the research): red (hard cardio) and blue (easy cardio)
     vessel networks over the body, each as bright as its minutes are of the weekly target (capped at
-    full), a pulse running along each lit one and a beating heart on the front; the figure dims a
-    little under them. The hint gives "Easy x/y min · Hard x/y min"; the Balance tab gets a cardio panel
+    full), a pulse running along each lit one and a beating heart on the front; the figure fades toward
+    the card under them (Modern draws crisp flat lines, Frutiger glassy tubes). The hint gives
+    "Blue = easy x/y min · Red = hard x/y min"; the Balance tab gets a cardio panel
     with both bars, the health line (easy + 2 x hard against the WHO 150, extra benefit at 300) and the
     note "Colours are a code, not anatomy". Month / year average the minutes per week like the sets.
 - Tabs under it: **Balance | Workouts** (the Balance tab starts with a targets line: which presets

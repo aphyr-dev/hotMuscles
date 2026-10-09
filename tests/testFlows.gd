@@ -863,7 +863,7 @@ func _checkTargets() -> void:
 	_expectTrue("Targets chip shows with presets on", week.targetsChip.visible)
 	week.setTargetsOverlay(true)
 	_expectNear("glutes target = the higher preset", float(week.regionTargets["glutes"]), wantGlutes)
-	_expectEqual("card title", week.cardTitle(), "Sets vs your targets")
+	_expectEqual("card title", week.cardTitle(), "Sets vs targets")
 	var expected: Dictionary = HeatEngine.targetHeat(week.shownHeat, week.regionTargets, baseline)
 	_expectNear("body shows sets as a share of the target", float(week.bodyCard.bodyView.toHeat.get("glutes", 0.0)), float(expected.get("glutes", 0.0)))
 	_expectTrue("hint counts the muscles on target", week.cardHintText().contains("muscles on target"))
@@ -889,7 +889,7 @@ func _checkTargets() -> void:
 	week.setTargetsOverlay(false)
 	storage.setSetting("activeTargets", [])
 	await _wait(0.1)
-	_expectTrue("presets off: chip gone, plain title", not week.targetsChip.visible and week.cardTitle() != "Sets vs your targets")
+	_expectTrue("presets off: chip gone, plain title", not week.targetsChip.visible and week.cardTitle() != "Sets vs targets")
 
 
 ### /// BACKUP ///

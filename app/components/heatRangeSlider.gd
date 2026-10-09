@@ -6,7 +6,9 @@ extends Control
 ##   everything past the handle shows the top colour - so the bar reads exactly like the body:
 ##   a region with x sets has the colour under x
 ## - drag or tap anywhere on it (finger or mouse) to set N (whole sets, minValue..maxValue)
-## properties: value (N), minValue, maxValue, gradientId
+## - scaleMode "sets" numbers the scale in sets; "target" (the body shows each muscle as its share of
+##   its target, at target = N) numbers it 0 / 50% / target / 2x instead
+## properties: value (N), minValue, maxValue, gradientId, scaleMode
 ## signal: valueChanged(value)
 ## inside a KineticScroll it keeps the finger (claimsDrag), so dragging it never scrolls the page
 
@@ -39,6 +41,7 @@ var value: int = 10: set = _setValue
 var minValue: int = 1: set = _setMinValue
 var maxValue: int = 20: set = _setMaxValue
 var gradientId: String = "infrared": set = _setGradientId
+var scaleMode: String = "sets": set = _setScaleMode
 
 var draggingHandle: bool = false
 
@@ -107,6 +110,13 @@ func _themeColour(key: String, fallback: Color) -> Color:
 	return fallback
 
 
+func _setScaleMode(newValue: String) -> void:
+	if newValue == scaleMode:
+		return
+	scaleMode = newValue
+	queue_redraw()
+
+
 ### /// DRAWING ///
 
 func _draw() -> void:
@@ -153,13 +163,11 @@ func _drawAmountSlider() -> void:
 
 	# scale numbers
 	var labelY: float = track.end.y + labelGap + labelFontSize
-	var tick: int = 0
-	while tick <= maxValue:
-		var text: String = str(tick)
+	for mark in _scaleMarks():
+		var text: String = mark[1]
 		var width: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, labelFontSize).x
-		var x: float = clampf(_xForSets(tick) - width * 0.5, 0.0, size.x - width)
+		var x: float = clampf(_xForSets(mark[0]) - width * 0.5, 0.0, size.x - width)
 		draw_string(font, Vector2(x, labelY), text, HORIZONTAL_ALIGNMENT_LEFT, -1, labelFontSize, muted)
-		tick += tickStep
 
 	# handle
 	var centre: Vector2 = Vector2(handleX, track.get_center().y)
@@ -169,6 +177,27 @@ func _drawAmountSlider() -> void:
 	var numberSize: Vector2 = font.get_string_size(number, HORIZONTAL_ALIGNMENT_LEFT, -1, handleFontSize)
 	var numberPos: Vector2 = Vector2(centre.x - numberSize.x * 0.5, centre.y + handleFontSize * 0.36)
 	draw_string(font, numberPos, number, HORIZONTAL_ALIGNMENT_LEFT, -1, handleFontSize, handleText)
+
+
+func _scaleMarks() -> Array:
+	### WHAT THIS DOES
+	# [sets position, text] for each scale label: every tickStep sets, or in target mode 0, half the
+	# target, the target (under the handle) and twice it when it fits
+
+	var marks: Array = []
+
+	if scaleMode == "target":
+		marks.append([0.0, "0"])
+		marks.append([value * 0.5, "50%"])
+		marks.append([float(value), "target"])
+		if value * 2 <= maxValue:
+			marks.append([value * 2.0, "2×"])
+		return marks
+	var tick: int = 0
+	while tick <= maxValue:
+		marks.append([float(tick), str(tick)])
+		tick += tickStep
+	return marks
 
 
 ### /// INPUT ///

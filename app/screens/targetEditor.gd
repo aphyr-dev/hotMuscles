@@ -75,7 +75,7 @@ func _build() -> void:
 	nameEdit.custom_minimum_size.y = 50.0
 	nameEdit.text_changed.connect(setName)
 	column.add_child(nameEdit)
-	column.add_child(Ui.wrapLabel("Each number adds to (or takes from) your weekly baseline of %d sets - the home slider - for that muscle." % int(Targets.baseline()), "FaintLabel"))
+	column.add_child(Ui.wrapLabel("+ / − changes your %d-set weekly baseline (the home slider) for that muscle." % int(Targets.baseline()), "MutedLabel"))
 	bodyCard = BodyCard.new()
 	column.add_child(bodyCard)
 	bodyCard.configure("This target", bodyMaxHeight, "", false, "")
@@ -112,7 +112,7 @@ func _card(column: VBoxContainer, title: String) -> VBoxContainer:
 
 
 func _offsetRow(region: Dictionary) -> HBoxContainer:
-	# name, "= 15 sets", and the - n + stepper
+	# name, "15 sets a week" (what counts), and the - n + stepper with the change from the baseline
 	var regionId: String = region["id"]
 	var row: HBoxContainer = Ui.hbox(6)
 	var texts: VBoxContainer = Ui.vbox(0)
@@ -120,7 +120,7 @@ func _offsetRow(region: Dictionary) -> HBoxContainer:
 	texts.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_child(texts)
 	texts.add_child(Ui.label(str(region["name"]), "BoldLabel"))
-	var result: Label = Ui.label("", "FaintLabel")
+	var result: Label = Ui.label("")
 	texts.add_child(result)
 	resultLabels[regionId] = result
 	offsetLabels[regionId] = _stepper(row, changeOffset.bind(regionId, -1), changeOffset.bind(regionId, 1))
@@ -135,7 +135,7 @@ func _cardioRow(light: Dictionary) -> HBoxContainer:
 	texts.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_child(texts)
 	texts.add_child(Ui.label(str(light["name"]), "BoldLabel"))
-	texts.add_child(Ui.label("minutes a week", "FaintLabel"))
+	texts.add_child(Ui.label("minutes a week", "MutedLabel"))
 	cardioLabels[lightId] = _stepper(row, changeCardio.bind(lightId, -cardioStep), changeCardio.bind(lightId, cardioStep))
 	return row
 
@@ -198,16 +198,23 @@ func _refresh() -> void:
 
 	for regionId in offsetLabels:
 		var offset: int = int(draft["offsets"].get(regionId, 0))
-		offsetLabels[regionId].text = "%+d" % offset
-		if offset == 0:
-			offsetLabels[regionId].text = "0"
-		resultLabels[regionId].text = "= %s sets a week" % Ui.formatSets(float(targets.get(regionId, 0.0)))
+		var offsetLabel: Label = offsetLabels[regionId]
+		if offset > 0:
+			offsetLabel.text = "+%d" % offset
+			offsetLabel.add_theme_color_override("font_color", Ui.colour("hot"))
+		elif offset < 0:
+			offsetLabel.text = "−%d" % -offset
+			offsetLabel.add_theme_color_override("font_color", Ui.colour("cold"))
+		else:
+			offsetLabel.text = "0"
+			offsetLabel.add_theme_color_override("font_color", Ui.colour("textMuted"))
+		resultLabels[regionId].text = "%s sets a week" % Ui.formatSets(float(targets.get(regionId, 0.0)))
 		biggest = maxf(biggest, float(targets.get(regionId, 0.0)))
 	for lightId in cardioLabels:
 		cardioLabels[lightId].text = str(int(draft["cardio"].get(lightId, 0)))
 	bodyCard.bodyView.rangeMax = biggest
 	bodyCard.setHeat(targets, true)
-	bodyCard.setHint("Hottest = biggest target (%s sets a week)" % Ui.formatSets(biggest))
+	bodyCard.setHint("Colour = size of target (biggest %s sets a week)" % Ui.formatSets(biggest))
 
 
 ### /// SAVE AND LEAVE ///

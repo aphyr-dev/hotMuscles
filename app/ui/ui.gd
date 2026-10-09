@@ -286,7 +286,7 @@ static func exerciseMeta(exercise: Dictionary) -> String:
 	if names.size() > 0:
 		parts.append(", ".join(names))
 	elif str(exercise.get("category", "")) == "cardio":
-		parts.append("cardio, logged in minutes")
+		parts.append("cardio · minutes")
 	else:
 		parts.append("no muscle heat")
 	return " · ".join(parts)

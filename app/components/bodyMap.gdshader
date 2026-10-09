@@ -38,8 +38,10 @@ uniform float ghostLineLow = 0.55;
 uniform float ghostDashShare = 0.6;
 // blue steps per texel of edge distance (AppData.mapEdgeSteps)
 uniform float edgeSteps = 64.0;
-// how much the figure darkens under an overlay drawn on top (the cardio vessels), 0 = not at all
+// how much the figure fades toward the card colour under an overlay drawn on top (the cardio
+// vessels), 0 = not at all
 uniform float dim = 0.0;
+uniform vec3 dimColour = vec3(0.0);
 
 /// TUNING ///
 
@@ -262,6 +264,6 @@ void fragment() {
 			}
 		}
 	}
-	colour.rgb *= 1.0 - dim;
+	colour.rgb = mix(colour.rgb, dimColour, dim);
 	COLOR = colour;
 }

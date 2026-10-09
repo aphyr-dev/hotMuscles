@@ -493,7 +493,11 @@ func _updateRow(parts: Dictionary, entry: Dictionary) -> void:
 		parts["setsLabel"].text = str(int(entry.get("minutes", 0)))
 		var effortId: String = str(entry.get("effort", ""))
 		parts["effortChips"].select(effortId, false)
-		parts["effortHint"].text = str(AppData.effortById.get(effortId, {}).get("hint", ""))
+		var effort: Dictionary = AppData.effortById.get(effortId, {})
+		parts["effortHint"].text = ""
+		if not effort.is_empty():
+			parts["effortHint"].text = "%s: %s" % [effort["label"], effort["hint"]]
+		parts["effortHint"].add_theme_color_override("font_color", _effortColour(effortId))
 	else:
 		parts["setsLabel"].text = str(int(entry["sets"]))
 	parts["minus"].disabled = planned
@@ -511,6 +515,17 @@ func _onStep(index: int, delta: int) -> void:
 		changeMinutes(index, delta)
 		return
 	changeSets(index, delta)
+
+
+func _effortColour(effortId: String) -> Color:
+	# the colour of the cardio light an effort fills (blue easy, red hard), as on the home overlay
+	var zone: String = str(AppData.effortById.get(effortId, {}).get("zone", ""))
+	for light in AppData.cardioLights:
+		if float(light["zones"].get(zone, 0)) > 0.0 and str(light["colour"]) == "red":
+			return VesselLayer.redColour
+		if float(light["zones"].get(zone, 0)) > 0.0:
+			return VesselLayer.blueColour
+	return Ui.colour("textMuted")
 
 
 func _onEffortPicked(effortId: String, index: int) -> void:

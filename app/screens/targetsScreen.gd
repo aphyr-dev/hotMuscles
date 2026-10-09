@@ -20,6 +20,8 @@ const sectionTitles: Dictionary = {"sport": "Sports", "physique": "Physique", "c
 # rows made in the frame the screen opens, then per frame after that (all at once cost a ~50 ms frame)
 const firstRows: int = 4
 const rowsPerFrame: int = 3
+# the "..." menu button's touch size
+const moreButtonSize: float = 56.0
 
 ### /// STATE ///
 
@@ -43,7 +45,7 @@ func _build() -> void:
 	scroll = makeScroll(frame["content"])
 	column = scroll.get_meta("column")
 
-	column.add_child(Ui.wrapLabel("Switch on any mix. A muscle's weekly target is your baseline (the home slider, %d sets now) plus the preset's offset; with several on, the highest wins. Turn on Targets under the home body to see how close you are." % int(Targets.baseline()), "MutedLabel"))
+	column.add_child(Ui.wrapLabel("Pick one or more. Each muscle's weekly target = your %d-set baseline (the home slider) plus the preset's change. If several are on, the highest wins." % int(Targets.baseline()), "MutedLabel"))
 	bodyCard = BodyCard.new()
 	column.add_child(bodyCard)
 	bodyCard.configure("Your targets", bodyMaxHeight, "", false, "")
@@ -108,7 +110,7 @@ func _refreshPreview() -> void:
 		for preset in Targets.activePresets():
 			names.append(str(preset["name"]))
 		bodyCard.setTitle(", ".join(names))
-		bodyCard.setHint("Hottest = biggest target (%s sets a week) · cardio %d easy + %d hard min a week" % [Ui.formatSets(biggest), int(cardio.get("easyCardio", 0)), int(cardio.get("hardCardio", 0))])
+		bodyCard.setHint("Colour = size of target (biggest %s sets a week) · cardio %d easy + %d hard min a week" % [Ui.formatSets(biggest), int(cardio.get("easyCardio", 0)), int(cardio.get("hardCardio", 0))])
 
 
 func _planRows() -> void:
@@ -180,9 +182,16 @@ func _presetRow(preset: Dictionary) -> TapRow:
 			break
 		keys.append(str(AppData.getExercise(exerciseId).get("name", exerciseId)))
 	if keys.size() > 0:
-		texts.add_child(Ui.wrapLabel("Key: %s" % ", ".join(keys), "FaintLabel"))
+		# one line, trimmed: the row stays short however long the names are
+		var keyLine: Label = Ui.label("Key: %s" % ", ".join(keys), "FaintLabel")
+		keyLine.clip_text = true
+		keyLine.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		keyLine.custom_minimum_size.x = 40.0
+		keyLine.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		texts.add_child(keyLine)
 
 	var more: Button = Ui.iconButton("more", "FlatButton", "textMuted")
+	more.custom_minimum_size = Vector2(moreButtonSize, moreButtonSize)
 	more.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	more.pressed.connect(openMenu.bind(presetId))
 	line.add_child(more)
@@ -201,7 +210,7 @@ func _showActive(row: TapRow, active: bool) -> void:
 		tick.colourKey = "accent"
 	else:
 		tick.kind = "circle"
-		tick.colourKey = "textFaint"
+		tick.colourKey = "textMuted"
 
 
 func _offsetSummary(preset: Dictionary) -> String:

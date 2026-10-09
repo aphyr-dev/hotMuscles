@@ -18,7 +18,7 @@ extends Control
 ##   heatShown() -> the values currently drawn (mid-animation too)
 ##   heightToFitWidth(width) -> the height at which the current view fills that width exactly
 ##   setVessels({"red": 0..1, "blue": 0..1})              the cardio overlay (VesselLayer) over the
-##                                                          figures, which dim a little under it; {} hides
+##                                                          figures, which fade toward the card under it; {} hides
 ## signals: regionTapped(regionId), regionLongPressed(regionId), emptyTapped(), zoomChanged(zoom)
 ## input: tap a region (finger or mouse); hold one still for longPressSeconds = a long press (only
 ##   when something listens to regionLongPressed; the tap is then dropped); two-finger pinch zoom + pan; mouse wheel zooms at the
@@ -67,8 +67,8 @@ var tapMaxSeconds: float = 0.6
 # a still press held this long is a long press (and buzzes on a phone)
 var longPressSeconds: float = 0.45
 var longPressBuzzMs: int = 30
-# how much the figures darken while the cardio vessels are drawn over them
-var vesselDim: float = 0.35
+# how much the figures fade toward the card colour while the cardio vessels are drawn over them
+var vesselDim: float = 0.5
 # two taps closer than this in time and space are a double tap
 var doubleTapSeconds: float = 0.3
 var doubleTapDistancePx: float = 40.0
@@ -337,6 +337,8 @@ func _writePalette() -> void:
 	mapMaterial.set_shader_parameter("outlinesOn", selectedRegions.size() > 0 or ghostHeat.size() > 0)
 	mapMaterial.set_shader_parameter("ghostColour", _themeColour("ghost", Color("#7ff0ff")))
 	mapMaterial.set_shader_parameter("haloColour", gapColour)
+	var card: Color = _themeColour("surface", Color("#16181d"))
+	mapMaterial.set_shader_parameter("dimColour", Vector3(card.r, card.g, card.b))
 	mapMaterial.set_shader_parameter("lineColour", Color.WHITE)
 	mapMaterial.set_shader_parameter("selectedOutlinePx", selectedOutlinePx)
 	mapMaterial.set_shader_parameter("selectedHaloPx", selectedHaloPx)

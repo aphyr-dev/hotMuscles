@@ -9,6 +9,7 @@ extends Control
 ## - lives as a child of BodyView (BodyView.setVessels makes it) and reads its slots, zoom and pan
 ## - the paths run through each region's left / right anchor (AppData.bodyView anchors), so they follow
 ##   whichever body and view is shown; colours are a code, not anatomy (the research note says so)
+## - the style decides the finish (AppStyle.glassVessels): flat crisp lines, or glassy glowing tubes
 
 ### /// TUNING ///
 
@@ -16,13 +17,18 @@ extends Control
 const redColour: Color = Color("#ff3b55")
 const blueColour: Color = Color("#3f8cff")
 # line width as a share of the figure height (at the card's own zoom), and the thinnest it gets in px
-const lineWidthShare: float = 0.0045
-const minLineWidth: float = 1.4
-# the dark line under each vessel and the soft glow around it, as multiples of the line width
-const underWidthScale: float = 2.2
-const glowWidthScale: float = 4.0
-const underAlpha: float = 0.45
-const glowAlpha: float = 0.3
+const lineWidthShare: float = 0.006
+const minLineWidth: float = 1.8
+# the dark outline under each vessel (its own colour, darkened): width as a multiple of the line
+# width, how much darker, and how opaque
+const underWidthScale: float = 1.55
+const underDarken: float = 0.6
+const underAlpha: float = 0.9
+# glassy finish only: the soft glow around each vessel (x line width) and the white shine along it
+const glowWidthScale: float = 3.4
+const glowAlpha: float = 0.25
+const shineWidthScale: float = 0.32
+const shineAlpha: float = 0.55
 # how strong an empty network still shows (0..1), and how much a full one whitens its core
 const emptyStrength: float = 0.28
 const fullWhiten: float = 0.3
@@ -32,10 +38,10 @@ const pairOffsetShare: float = 0.0045
 const smoothSteps: int = 6
 # the travelling pulse: share of a vessel per second, its dot size (x line width), and its glow size
 const pulseSpeed: float = 0.35
-const pulseDotScale: float = 1.5
+const pulseDotScale: float = 2.0
 const pulseGlowScale: float = 4.0
 # the heart (front view): size as a share of the figure height, and seconds per beat
-const heartSizeShare: float = 0.016
+const heartSizeShare: float = 0.012
 const heartBeatSeconds: float = 0.85
 
 ### /// STATE ///
@@ -231,8 +237,8 @@ func _offset(points: PackedVector2Array, distance: float) -> PackedVector2Array:
 
 func _draw() -> void:
 	### WHAT THIS DOES
-	# per figure: the blue and red vessels (dark under-line, soft glow, bright core), a pulse running
-	# along each lit one (outward on red, inward on blue), and the heart on the front
+	# per figure: the blue and red vessels (dark outline, bright core; glassy styles add a glow and a
+	# shine), a pulse running along each lit one (outward on red, inward on blue), and the heart
 
 	if bodyView == null or levels.is_empty():
 		return
@@ -251,21 +257,32 @@ func _draw() -> void:
 func _drawNetwork(chains: Array, viewXf: Transform2D, pair: float, width: float, colour: Color, level: float, outward: bool) -> void:
 	var strength: float = lerpf(emptyStrength, 1.0, clampf(level, 0.0, 1.0))
 	var core: Color = colour.lerp(Color.WHITE, fullWhiten * level)
+	var glass: bool = AppTheme.style.glassVessels
+	var outline: Color = Color(colour.darkened(underDarken), underAlpha * strength)
 
 	for index in range(chains.size()):
 		var chain: Dictionary = chains[index]
 		var model: PackedVector2Array = _offset(chain["points"], pair * float(chain["side"]))
 		var points: PackedVector2Array = viewXf * model
-		draw_polyline(points, Color(0.0, 0.0, 0.0, underAlpha * strength), width * underWidthScale, true)
-		draw_polyline(points, Color(colour, glowAlpha * strength * strength), width * glowWidthScale, true)
+
+		# the vessel
+		if glass:
+			draw_polyline(points, Color(colour, glowAlpha * strength * strength), width * glowWidthScale, true)
+		draw_polyline(points, outline, width * underWidthScale, true)
 		draw_polyline(points, Color(core, strength), width, true)
+		if glass:
+			draw_polyline(points, Color(1.0, 1.0, 1.0, shineAlpha * strength), width * shineWidthScale, true)
+
+		# the pulse
 		if level > 0.0:
 			var travelled: float = fposmod(clock * pulseSpeed + float(index) * 0.37, 1.0)
 			if not outward:
 				travelled = 1.0 - travelled
 			var spot: Vector2 = _pointAlong(points, travelled)
-			draw_circle(spot, width * pulseGlowScale, Color(colour, 0.35 * level))
-			draw_circle(spot, width * pulseDotScale, Color(Color.WHITE.lerp(colour, 0.35), level))
+			if glass:
+				draw_circle(spot, width * pulseGlowScale, Color(colour, 0.35 * level))
+			draw_circle(spot, width * (pulseDotScale + 0.5), Color(colour.darkened(underDarken), underAlpha))
+			draw_circle(spot, width * pulseDotScale, Color.WHITE.lerp(colour, 0.25))
 
 
 func _pointAlong(points: PackedVector2Array, share: float) -> Vector2:
@@ -283,11 +300,13 @@ func _pointAlong(points: PackedVector2Array, share: float) -> Vector2:
 
 
 func _drawHeart(centre: Vector2, radius: float) -> void:
-	# a soft red glow with a double beat ("lub-dub"), brighter as the red light fills
+	# a crisp red dot with a dark outline and a double beat ("lub-dub"), brighter as the red light
+	# fills; glassy styles add a soft glow
 	var phase: float = fposmod(clock / heartBeatSeconds, 1.0)
 	var beat: float = maxf(exp(-pow((phase - 0.08) * 14.0, 2.0)), 0.7 * exp(-pow((phase - 0.3) * 14.0, 2.0)))
 	var strength: float = lerpf(emptyStrength, 1.0, clampf(float(levels.get("red", 0.0)), 0.0, 1.0))
 	var size: float = radius * (1.0 + 0.25 * beat)
-	draw_circle(centre, size * 2.4, Color(redColour, 0.18 * strength))
-	draw_circle(centre, size * 1.5, Color(redColour, 0.35 * strength))
+	if AppTheme.style.glassVessels:
+		draw_circle(centre, size * 2.0, Color(redColour, 0.22 * strength))
+	draw_circle(centre, size + 1.5, Color(redColour.darkened(underDarken), underAlpha * strength))
 	draw_circle(centre, size, Color(redColour.lerp(Color.WHITE, 0.25 * beat), strength))

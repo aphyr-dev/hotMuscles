@@ -9,7 +9,8 @@ extends VBoxContainer
 ## - bodyView (the BodyView), slider (HeatRangeSlider or null), viewChips (Segmented)
 ## - setHeat(heat, animate), setGhost(ghost), setGradient(id), setBody(body),
 ##   setView(view), setHideUntouched(hide), setHint(text), setTitle(text)
-## - addFooterChip(text) -> a toggle chip under the slider (several sit in one row), the hint line
+## - addFooterChip(text) -> a toggle chip under the slider (several sit in one centred row), the hint
+##   line under them
 ##   beside them; setVessels(levels) passes the cardio overlay to the body
 ## - setRangeKey(key)   the slider now shows and writes a different Storage setting
 ## - the body is edge to edge in the card; its height fits the figures to the card width
@@ -144,25 +145,28 @@ func setHideUntouched(hide: bool) -> void:
 
 func addFooterChip(text: String) -> Button:
 	### WHAT THIS DOES
-	# a toggle chip at the left of the hint line (the title row has no room left on a phone); more
-	# chips line up after the first, the hint after the last; the caller listens to its toggled signal
+	# a toggle chip in a centred row above the hint line (the title row has no room left on a phone);
+	# more chips line up after the first, the hint keeps the full width under them; the caller
+	# listens to its toggled signal
 
 	var chip: Button = Ui.button(text, "ChipButton")
 
 	if footerRow == null:
 		footerRow = Ui.hbox(8)
+		footerRow.alignment = BoxContainer.ALIGNMENT_CENTER
 		bottomBox.add_child(footerRow)
 		bottomBox.move_child(footerRow, hintLabel.get_index())
-		hintLabel.reparent(footerRow)
-		hintLabel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		hintLabel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		hintLabel.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	chip.toggle_mode = true
 	chip.custom_minimum_size.y = Segmented.chipHeight
 	chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	footerRow.add_child(chip)
-	footerRow.move_child(chip, hintLabel.get_index())
 	return chip
+
+
+func setScaleMode(mode: String) -> void:
+	# the legend's numbers: "sets" or "target" (see HeatRangeSlider.scaleMode)
+	if slider != null:
+		slider.scaleMode = mode
 
 
 func setVessels(levels: Dictionary) -> void:

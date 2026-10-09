@@ -344,6 +344,7 @@ func _lookPass(stylePath: String, paletteIds: PackedStringArray) -> bool:
 		app.goBack()
 		await _wait(settleSeconds)
 		workout.discard()
+		app.toast.hideNow()
 		await _wait(settleSeconds)
 		app.openSettings()
 		await _wait(settleSeconds)
@@ -427,6 +428,7 @@ func _targetShots(week: Node) -> void:
 	app.goBack()
 	await _wait(settleSeconds)
 	workout.discard()
+	app.toast.hideNow()
 	await _wait(settleSeconds)
 	storage.setSetting("activeTargets", [])
 

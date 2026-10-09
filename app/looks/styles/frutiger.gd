@@ -3,7 +3,7 @@ extends AppStyle
 ## what the owner sees
 ## - glossy orb-like controls: round-ended pill buttons with a wet highlight, a bead of light and a
 ##   bright glow along the bottom edge; the main action is a glowing accent orb
-## - glass cards with a rim light, a wet streak across the top corner and a few water droplets
+## - glass cards with a rim light and a wet streak across the top corner
 ## - the page is a sky-to-horizon gradient built from the palette (cold at the top, accent glow at the
 ##   bottom) with see-through soap bubbles drifting in it and glowing light-streak swooshes (curved
 ##   ribbons in the accent and cold colours) sweeping behind the header and the bottom bar
@@ -36,20 +36,13 @@ const lensAlphaLight: float = 0.80
 # strength of the swoosh ribbons (1 = as designed)
 const swooshStrength: float = 1.0
 # strength of the bubbles in the page (1 = as designed)
-const bubbleStrength: float = 1.0
-# the water droplets on cards: size and how many
-const dropletSize: float = 4.5
-const dropletsOnCards: int = 3
+const bubbleStrength: float = 0.75
 # the header fizz: how many small bubbles rise beside the title
 const headerFizzCount: int = 7
 
 # the bubbles of the page: [x as a share of the width, y as a share of the height, radius in px at
 # 430 wide, colour (0 water, 1 accent, 2 cold, 3 white), strength]
 const pageBubbles: Array = [
-	[0.86, 0.045, 17.0, 0, 1.0],
-	[0.94, 0.085, 9.0, 1, 1.0],
-	[0.75, 0.03, 7.0, 3, 0.9],
-	[0.05, 0.12, 12.0, 2, 0.9],
 	[0.03, 0.22, 24.0, 0, 1.0],
 	[0.97, 0.26, 30.0, 0, 1.0],
 	[0.93, 0.40, 11.0, 3, 0.8],
@@ -71,7 +64,7 @@ const pageBubbles: Array = [
 ### /// SMALL DRAWING TOOLS ///
 
 class Art:
-	## the pieces the style draws with: discs, rings, arcs, glowing ribbons, bubbles and droplets
+	## the pieces the style draws with: discs, rings, arcs, glowing ribbons and bubbles
 
 	static func points(centre: Vector2, radius: float, from: float, to: float, steps: int) -> PackedVector2Array:
 		var made := PackedVector2Array()
@@ -162,31 +155,15 @@ class Art:
 		if radius > 8.0:
 			disc(canvasItem, centre + Vector2(-0.36, -0.42) * radius, maxf(radius * 0.07, 1.0), Color(white, 0.9 * strength))
 
-	static func droplet(canvasItem: RID, centre: Vector2, radius: float, tint: Color, dark: bool) -> void:
-		### WHAT THIS DOES
-		# a bead of water sitting on glass: a soft shadow under it, a clear body and a bright spot
-
-		var shadowColour: Color = Color(0.0, 0.0, 0.0, 0.3)
-		var bodyColour: Color = Color(1.0, 1.0, 1.0, 0.1)
-		if not dark:
-			shadowColour = Color(tint.darkened(0.5), 0.3)
-			bodyColour = Color(tint, 0.16)
-		disc(canvasItem, centre + Vector2(0.6, 1.1), radius, shadowColour)
-		disc(canvasItem, centre, radius, bodyColour)
-		arc(canvasItem, centre, radius - 0.5, PI * 0.1, PI * 0.55, 1.0, Color(tint.lerp(Color.WHITE, 0.5), 0.55))
-		disc(canvasItem, centre + Vector2(-0.3, -0.35) * radius, maxf(radius * 0.26, 0.9), Color(1.0, 1.0, 1.0, 0.95))
-
 
 ### /// THE GLASS PANEL ///
 
 class WetBox extends ShapeBox:
 	## a ShapeBox with the wet extras: a gloss that follows a pill's round ends, a glow along the
-	## bottom, a small streak and bead of light at the top left, and water droplets on the glass
+	## bottom and a small streak of light at the top left
 	## - sheenAlpha, sheenHeight     white sheen over the top (share of the height)
 	## - glowColour, glowHeight      light along the bottom inside edge (alpha in the colour)
 	## - lensAlpha, lensWidth, lensHeight   the wet streak at the top left (px; 0 alpha = none)
-	## - droplets                    Vector3(x, y, radius); x, y >= 0 from the left, top, < 0 from the right, bottom
-	## - dropTint, darkGlass         droplet colour and whether the glass is dark
 
 	var sheenAlpha: float = 0.0
 	var sheenHeight: float = 0.5
@@ -195,9 +172,6 @@ class WetBox extends ShapeBox:
 	var lensAlpha: float = 0.0
 	var lensWidth: float = 90.0
 	var lensHeight: float = 8.0
-	var droplets: Array = []
-	var dropTint: Color = Color(1.0, 1.0, 1.0, 1.0)
-	var darkGlass: bool = true
 
 	func _draw(canvasItem: RID, rect: Rect2) -> void:
 		super._draw(canvasItem, rect)
@@ -227,7 +201,7 @@ class WetBox extends ShapeBox:
 					glowColours.append(Color(glowColour, glowColour.a * up * up))
 				RenderingServer.canvas_item_add_polygon(canvasItem, piece, glowColours)
 
-		# the wet streak and its bead of light
+		# the wet streak
 		if lensAlpha > 0.0:
 			var startX: float = rect.position.x + maxf(radii.x * 0.75, 10.0)
 			var across: float = minf(rect.size.x * 0.42, lensWidth)
@@ -241,21 +215,7 @@ class WetBox extends ShapeBox:
 				lensPoints.append(point)
 				lensColours.append(Color(1.0, 1.0, 1.0, lensAlpha * pow(1.0 - down, 1.4)))
 			RenderingServer.canvas_item_add_polygon(canvasItem, lensPoints, lensColours)
-			Art.disc(canvasItem, centre + Vector2(across * 0.5 + 7.0, 0.0), 1.7, Color(1.0, 1.0, 1.0, lensAlpha * 0.9))
 
-		# droplets sitting on the glass
-		for drop in droplets:
-			var x: float = drop.x
-			var y: float = drop.y
-			if x < 0.0:
-				x = rect.end.x + x
-			else:
-				x = rect.position.x + x
-			if y < 0.0:
-				y = rect.end.y + y
-			else:
-				y = rect.position.y + y
-			Art.droplet(canvasItem, Vector2(x, y), drop.z, dropTint, darkGlass)
 
 
 ### /// THE SKY ///
@@ -390,6 +350,7 @@ func _init() -> void:
 	checkSize = 30
 	sliderThickness = 12
 	boldStrength = 0.5
+	glassVessels = true
 
 
 func _isDark(colours: Dictionary) -> bool:
@@ -434,7 +395,7 @@ func decorateFrame(parts: Dictionary, colours: Dictionary) -> void:
 
 func drawCardChrome(card: Control, rect: Rect2, colours: Dictionary) -> void:
 	### WHAT THIS DOES
-	# behind the body figures: a faint swoosh crossing the card and a few bubbles in the bottom corners
+	# behind the body figures: a faint swoosh crossing the card and a few bubbles beside the legs
 
 	var canvasItem: RID = card.get_canvas_item()
 	var dark: bool = _isDark(colours)
@@ -452,10 +413,10 @@ func drawCardChrome(card: Control, rect: Rect2, colours: Dictionary) -> void:
 
 	Art.ribbon(canvasItem, Vector2(-8.0, height * 0.78), Vector2(width * 0.3, height * 0.98), Vector2(width * 0.62, height * 0.5), Vector2(width + 8.0, height * 0.62), 40.0, water, cold, 0.16 * swooshStrength)
 	Art.ribbon(canvasItem, Vector2(-8.0, height * 0.86), Vector2(width * 0.34, height * 1.02), Vector2(width * 0.66, height * 0.58), Vector2(width + 8.0, height * 0.7), 7.0, swooshWhite, accent, 0.26 * swooshStrength)
-	Art.bubble(canvasItem, Vector2(width * 0.08, height * 0.82), 15.0, water, 0.9 * bubbleStrength, dark)
-	Art.bubble(canvasItem, Vector2(width * 0.15, height * 0.9), 7.0, white, 0.9 * bubbleStrength, dark)
-	Art.bubble(canvasItem, Vector2(width * 0.93, height * 0.2), 11.0, water, 0.9 * bubbleStrength, dark)
-	Art.bubble(canvasItem, Vector2(width * 0.89, height * 0.29), 5.0, accent, 0.9 * bubbleStrength, dark)
+	Art.bubble(canvasItem, Vector2(width * 0.06, height * 0.5), 13.0, water, 0.8 * bubbleStrength, dark)
+	Art.bubble(canvasItem, Vector2(width * 0.1, height * 0.56), 6.0, white, 0.8 * bubbleStrength, dark)
+	Art.bubble(canvasItem, Vector2(width * 0.94, height * 0.42), 10.0, water, 0.8 * bubbleStrength, dark)
+	Art.bubble(canvasItem, Vector2(width * 0.91, height * 0.48), 5.0, accent, 0.8 * bubbleStrength, dark)
 
 
 ### /// BOXES ///
@@ -566,8 +527,6 @@ func box(role: String, colours: Dictionary, tint: Color = Color(0, 0, 0, 0)) -> 
 			made.lensAlpha = lens
 			made.lensWidth = 70.0
 			made.lensHeight = 9.0
-			made.darkGlass = dark
-			made.dropTint = water
 			made.borderColour = orbRim
 			made.borderWidth = 1.0
 			made.shadowColour = shadowTint
@@ -604,8 +563,6 @@ func box(role: String, colours: Dictionary, tint: Color = Color(0, 0, 0, 0)) -> 
 			made.lensAlpha = 0.45 + lens * 0.5
 			made.lensWidth = 90.0
 			made.lensHeight = 10.0
-			made.darkGlass = dark
-			made.dropTint = water
 			made.borderColour = gelRim
 			made.borderWidth = 1.2
 			made.shadowColour = gelShadow
@@ -690,10 +647,6 @@ func box(role: String, colours: Dictionary, tint: Color = Color(0, 0, 0, 0)) -> 
 			made.shadowColour = shadowTint
 			made.shadowSize = 14.0
 			made.shadowOffset = Vector2(0.0, 6.0)
-			made.darkGlass = dark
-			made.dropTint = water
-			var drops: Array = [Vector3(-16.0, -12.0, dropletSize), Vector3(-30.0, -8.0, dropletSize * 0.55), Vector3(12.0, -9.0, dropletSize * 0.7)]
-			made.droplets = drops.slice(0, dropletsOnCards)
 			return made
 
 		"row":
