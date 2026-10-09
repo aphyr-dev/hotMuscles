@@ -257,7 +257,7 @@ func _draw() -> void:
 func _drawNetwork(chains: Array, viewXf: Transform2D, pair: float, width: float, colour: Color, level: float, outward: bool) -> void:
 	var strength: float = lerpf(emptyStrength, 1.0, clampf(level, 0.0, 1.0))
 	var core: Color = colour.lerp(Color.WHITE, fullWhiten * level)
-	var glass: bool = AppTheme.style.glassVessels
+	var glass: bool = _glassy()
 	var outline: Color = Color(colour.darkened(underDarken), underAlpha * strength)
 
 	for index in range(chains.size()):
@@ -285,6 +285,17 @@ func _drawNetwork(chains: Array, viewXf: Transform2D, pair: float, width: float,
 			draw_circle(spot, width * pulseDotScale, Color.WHITE.lerp(colour, 0.25))
 
 
+func _glassy() -> bool:
+	# the style's finish (AppStyle.glassVessels), looked up by path so the layer also compiles in
+	# drivers that run without the autoloads
+	var theme: Node = null
+	if is_inside_tree():
+		theme = get_node_or_null("/root/AppTheme")
+	if theme == null:
+		return false
+	return bool(theme.style.glassVessels)
+
+
 func _pointAlong(points: PackedVector2Array, share: float) -> Vector2:
 	# the point a share of the way along a polyline
 	var total: float = 0.0
@@ -306,7 +317,7 @@ func _drawHeart(centre: Vector2, radius: float) -> void:
 	var beat: float = maxf(exp(-pow((phase - 0.08) * 14.0, 2.0)), 0.7 * exp(-pow((phase - 0.3) * 14.0, 2.0)))
 	var strength: float = lerpf(emptyStrength, 1.0, clampf(float(levels.get("red", 0.0)), 0.0, 1.0))
 	var size: float = radius * (1.0 + 0.25 * beat)
-	if AppTheme.style.glassVessels:
+	if _glassy():
 		draw_circle(centre, size * 2.0, Color(redColour, 0.22 * strength))
 	draw_circle(centre, size + 1.5, Color(redColour.darkened(underDarken), underAlpha * strength))
 	draw_circle(centre, size, Color(redColour.lerp(Color.WHITE, 0.25 * beat), strength))

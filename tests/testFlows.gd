@@ -814,7 +814,7 @@ func _checkCardio() -> void:
 	_expectNear("blue empty", float(layer.levels["blue"]), 0.0)
 	var networks: Dictionary = layer._networks(week.bodyCard.bodyView.slots[0]["data"])
 	_expectTrue("vessels: trunk + head, arm, torso, leg on each side (%d)" % networks["chains"].size(), networks["chains"].size() == 9)
-	_expectTrue("hint gives the minutes", week.cardHintText().contains("Hard 45/30 min"))
+	_expectTrue("hint gives the minutes", week.cardHintText().contains("Red = hard 45/30 min"))
 	_expectTrue("cardio panel on the balance tab", week.cardioPanel.visible and _findText(week.cardioPanel, "Cardio this week"))
 	week.setCardioOverlay(false)
 	_expectTrue("vessels off", not layer.visible and not week.cardioPanel.visible)
