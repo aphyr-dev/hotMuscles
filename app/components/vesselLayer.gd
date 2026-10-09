@@ -40,9 +40,26 @@ const smoothSteps: int = 6
 const pulseSpeed: float = 0.35
 const pulseDotScale: float = 1.3
 const pulseGlowScale: float = 4.0
+# how far apart the pulses of neighbouring vessels start (share of a vessel), the glassy glow's
+# strength, the dark ring around the dot (px past the dot, x line width) and how white the dot is
+const pulseStagger: float = 0.37
+const pulseGlowAlpha: float = 0.35
+const pulseRingScale: float = 0.5
+const pulseWhite: float = 0.75
 # the heart (front view): size as a share of the figure height, and seconds per beat
 const heartSizeShare: float = 0.012
 const heartBeatSeconds: float = 0.85
+# the beat: when the two thumps land (share of a beat), how sharp they are, how strong the second
+# one is, and how much the heart swells and whitens on a thump
+const heartLubAt: float = 0.08
+const heartDubAt: float = 0.3
+const heartThumpSharpness: float = 14.0
+const heartDubStrength: float = 0.7
+const heartSwell: float = 0.25
+# glassy finish: the glow around the heart (x its size) and its strength; the dark ring in px
+const heartGlowScale: float = 2.0
+const heartGlowAlpha: float = 0.22
+const heartRingPx: float = 1.5
 
 ### /// STATE ///
 
@@ -275,14 +292,14 @@ func _drawNetwork(chains: Array, viewXf: Transform2D, pair: float, width: float,
 
 		# the pulse
 		if level > 0.0:
-			var travelled: float = fposmod(clock * pulseSpeed + float(index) * 0.37, 1.0)
+			var travelled: float = fposmod(clock * pulseSpeed + float(index) * pulseStagger, 1.0)
 			if not outward:
 				travelled = 1.0 - travelled
 			var spot: Vector2 = _pointAlong(points, travelled)
 			if glass:
-				draw_circle(spot, width * pulseGlowScale, Color(colour, 0.35 * level))
-			draw_circle(spot, width * (pulseDotScale + 0.5), Color(colour.darkened(underDarken), underAlpha))
-			draw_circle(spot, width * pulseDotScale, Color.WHITE.lerp(colour, 0.25))
+				draw_circle(spot, width * pulseGlowScale, Color(colour, pulseGlowAlpha * level))
+			draw_circle(spot, width * (pulseDotScale + pulseRingScale), Color(colour.darkened(underDarken), underAlpha))
+			draw_circle(spot, width * pulseDotScale, colour.lerp(Color.WHITE, pulseWhite))
 
 
 func _glassy() -> bool:
@@ -314,10 +331,12 @@ func _drawHeart(centre: Vector2, radius: float) -> void:
 	# a crisp red dot with a dark outline and a double beat ("lub-dub"), brighter as the red light
 	# fills; glassy styles add a soft glow
 	var phase: float = fposmod(clock / heartBeatSeconds, 1.0)
-	var beat: float = maxf(exp(-pow((phase - 0.08) * 14.0, 2.0)), 0.7 * exp(-pow((phase - 0.3) * 14.0, 2.0)))
+	var lub: float = exp(-pow((phase - heartLubAt) * heartThumpSharpness, 2.0))
+	var dub: float = heartDubStrength * exp(-pow((phase - heartDubAt) * heartThumpSharpness, 2.0))
+	var beat: float = maxf(lub, dub)
 	var strength: float = lerpf(emptyStrength, 1.0, clampf(float(levels.get("red", 0.0)), 0.0, 1.0))
-	var size: float = radius * (1.0 + 0.25 * beat)
+	var size: float = radius * (1.0 + heartSwell * beat)
 	if _glassy():
-		draw_circle(centre, size * 2.0, Color(redColour, 0.22 * strength))
-	draw_circle(centre, size + 1.5, Color(redColour.darkened(underDarken), underAlpha * strength))
-	draw_circle(centre, size, Color(redColour.lerp(Color.WHITE, 0.25 * beat), strength))
+		draw_circle(centre, size * heartGlowScale, Color(redColour, heartGlowAlpha * strength))
+	draw_circle(centre, size + heartRingPx, Color(redColour.darkened(underDarken), underAlpha * strength))
+	draw_circle(centre, size, Color(redColour.lerp(Color.WHITE, heartSwell * beat), strength))

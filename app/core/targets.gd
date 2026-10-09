@@ -8,7 +8,6 @@ extends RefCounted
 ## - activeIds() / activePresets() / hasActive() / isActive(id); toggle(id), setActive(ids)
 ## - baseline() -> the week slider (rangeWeek): every offset is counted from it
 ## - regionTargets() -> regionId -> weekly sets ({} with nothing on); cardioTargets() -> lightId -> minutes
-## - tagsFor(exerciseId) -> names of the active presets that list it as a key exercise
 ## - saveCustom(target) -> the saved one (new id when it has none); deleteCustom(id) -> the removed one
 ##   (also switched off); restoreCustom(target, wasActive) puts it back (undo)
 ## - hasCardio() -> any finished workout logged cardio minutes (the Cardio overlay shows from then on)
@@ -107,15 +106,6 @@ static func regionTargets() -> Dictionary:
 
 static func cardioTargets() -> Dictionary:
 	return HeatEngine.cardioTargets(activePresets(), AppData.cardioDefaultTarget)
-
-
-static func tagsFor(exerciseId: String) -> Array:
-	# names of the switched-on presets whose research names this exercise
-	var names: Array = []
-	for preset in activePresets():
-		if preset["keyExercises"].has(exerciseId):
-			names.append(str(preset["name"]))
-	return names
 
 
 ### /// CUSTOM TARGETS ///

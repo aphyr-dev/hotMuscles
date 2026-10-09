@@ -18,7 +18,7 @@ This file is canonical. `CLAUDE.md` only points here.
 |---|---|
 | `docs/appSpec.md` | **the full app spec** - every agreed feature, screen and rule. Read before building anything |
 | `docs/hotMusclesArchitecture_v3.pdf` | illustrated architecture guide, naming the real file and function behind every part; source `docs/architecture/architectureV3.html` + `img/` (reprint command in its header) - update it when the app's shape changes or a quoted file or function is renamed |
-| `app/` | the Godot app (each file opens with what it offers): `core/` = autoloads AppData, Storage, AppTheme + static HeatEngine, HeatGradients, Targets (presets on / your own / tags); `components/` = BodyView, VesselLayer (the cardio overlay), KineticScroll, HeatRangeSlider |
+| `app/` | the Godot app (each file opens with what it offers): `core/` = autoloads AppData, Storage, AppTheme + static HeatEngine, HeatGradients, Targets (presets on / your own); `components/` = BodyView, VesselLayer (the cardio overlay), KineticScroll, HeatRangeSlider |
 | `app/looks/` | styles (`styles/modern.gd`, `styles/frutiger.gd`, extending `appStyle.gd`) and palettes (`palettes/*.gd`), registered in `looks.gd`; the id is the file name |
 | `app/main.gd` | AppRoot: screen stack + slides, bottom sheets, toast, Android back / Escape, safe area |
 | `app/screens/` | WeekScreen (home), WorkoutScreen (live + editor), PickerScreen, SettingsScreen, ProfileSetup, TargetsScreen, TargetEditor; all extend AppScreen |

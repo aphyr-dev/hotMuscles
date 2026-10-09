@@ -37,6 +37,13 @@ const lensAlphaLight: float = 0.80
 const swooshStrength: float = 1.0
 # strength of the bubbles in the page (1 = as designed)
 const bubbleStrength: float = 0.75
+# one bubble on dark / light palettes: its see-through body, its rim and its window highlight
+const bubbleBodyAlphaDark: float = 0.07
+const bubbleBodyAlphaLight: float = 0.16
+const bubbleRimAlphaDark: float = 0.42
+const bubbleRimAlphaLight: float = 0.5
+const bubbleShineAlphaDark: float = 0.75
+const bubbleShineAlphaLight: float = 0.95
 # the header fizz: how many small bubbles rise beside the title
 const headerFizzCount: int = 7
 
@@ -134,15 +141,15 @@ class Art:
 
 		var white: Color = Color.WHITE
 		var rimColour: Color = tint.lerp(white, 0.55)
-		var bodyAlpha: float = 0.07
-		var rimAlpha: float = 0.42
-		var shineAlpha: float = 0.75
+		var bodyAlpha: float = bubbleBodyAlphaDark
+		var rimAlpha: float = bubbleRimAlphaDark
+		var shineAlpha: float = bubbleShineAlphaDark
 		var glintColour: Color = tint.lerp(white, 0.3)
 		if not dark:
 			rimColour = tint.darkened(0.15)
-			bodyAlpha = 0.16
-			rimAlpha = 0.5
-			shineAlpha = 0.95
+			bodyAlpha = bubbleBodyAlphaLight
+			rimAlpha = bubbleRimAlphaLight
+			shineAlpha = bubbleShineAlphaLight
 			glintColour = tint.darkened(0.05)
 		var rimWidth: float = clampf(radius * 0.07, 1.0, 2.2)
 

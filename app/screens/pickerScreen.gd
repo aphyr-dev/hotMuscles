@@ -21,7 +21,7 @@ extends AppScreen
 ## - templates tab: showTab("templates"), previewTemplate(id), applyTemplate(id),
 ##   renameTemplate(id) (asks), deleteTemplate(id) (undo toast)
 ## - "rough data" tag on non-curated exercises, "in workout" on ones already added, and the name of
-##   every switched-on target preset whose research names the exercise (Targets.tagsFor)
+##   every switched-on target preset whose research names the exercise (worked out once per list, presetTags)
 
 ### /// TUNING ///
 

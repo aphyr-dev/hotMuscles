@@ -96,9 +96,7 @@ func paletteOf(themeId: String) -> Dictionary:
 
 
 func colour(key: String) -> Color:
-	if palette.has(key):
-		return palette[key]
-	return palettes[Looks.defaultPalette]["colours"][key]
+	return palette[key]
 
 
 func box(role: String, tint: Color = Color(0, 0, 0, 0)) -> StyleBox:
@@ -130,12 +128,6 @@ func apply(themeId: String, styleId: String = "") -> void:
 	get_tree().root.theme = theme
 	RenderingServer.set_default_clear_color(palette["page"])
 	themeChanged.emit(currentId)
-
-
-func useStyleModule(made: AppStyle) -> void:
-	# puts a style that is not in the registry on the app (the look-review screenshot driver)
-	styles[made.styleId] = made
-	apply(currentId, made.styleId)
 
 
 func buildTheme(themeId: String, styleId: String = "") -> Theme:

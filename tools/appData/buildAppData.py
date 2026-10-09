@@ -605,7 +605,6 @@ def buildTargets(presetData, cardio, regionIds, exerciseIds):
 
     return {
         "version": dataVersion,
-        "baseline": presetData.get("baseline", 12),
         "presets": presets,
         "cardio": {"efforts": efforts, "lights": lights, "defaultTarget": cardio.get("defaultTarget", {})},
     }

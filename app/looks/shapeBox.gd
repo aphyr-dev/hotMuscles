@@ -11,7 +11,6 @@ extends StyleBox
 ## - highlightAlpha                a 1 px light line just inside the top edge (glass rim)
 ## - shadowColour, shadowSize, shadowOffset   a soft shadow under the shape (shadowSize 0 = none)
 ## - content margins: the usual StyleBox content_margin_* properties
-## - ShapeBox.make(fillTop, fillBottom, radius, padH, padV) -> a box with every corner the same
 
 ### /// TUNING ///
 
@@ -31,18 +30,6 @@ var highlightAlpha: float = 0.0
 var shadowColour: Color = Color(0, 0, 0, 0.35)
 var shadowSize: float = 0.0
 var shadowOffset: Vector2 = Vector2(0.0, 2.0)
-
-
-static func make(top: Color, bottom: Color, radius: float, padH: float, padV: float) -> ShapeBox:
-	var made := ShapeBox.new()
-	made.fillTop = top
-	made.fillBottom = bottom
-	made.radii = Vector4(radius, radius, radius, radius)
-	made.content_margin_left = padH
-	made.content_margin_right = padH
-	made.content_margin_top = padV
-	made.content_margin_bottom = padV
-	return made
 
 
 ### /// DRAWING ///

@@ -84,4 +84,15 @@ static func loadPalettes() -> Dictionary:
 			push_error("Looks: %s needs paletteName and colours" % path)
 			continue
 		found[idOf(path)] = {"name": str(constants["paletteName"]), "colours": constants["colours"]}
+
+	# every palette carries every colour the default one has (none quietly borrows another's)
+	if not found.has(defaultPalette):
+		push_error("Looks: the default palette %s is missing" % defaultPalette)
+		return found
+	for paletteId in found.keys():
+		for key in found[defaultPalette]["colours"]:
+			if not found[paletteId]["colours"].has(key):
+				push_error("Looks: palette %s has no colour %s" % [paletteId, key])
+				found.erase(paletteId)
+				break
 	return found

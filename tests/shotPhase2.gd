@@ -309,7 +309,8 @@ func _lookPass(stylePath: String, paletteIds: PackedStringArray) -> bool:
 			return false
 		prefix = "look_%s_%s" % [stylePath.get_file().get_basename(), paletteId]
 		_seed(paletteId, "male")
-		appTheme.useStyleModule(made)
+		appTheme.styles[made.styleId] = made
+		appTheme.apply(appTheme.currentId, made.styleId)
 		storage.setProfile("style", made.styleId)
 		await _openApp()
 		var week: Node = app.weekScreen()

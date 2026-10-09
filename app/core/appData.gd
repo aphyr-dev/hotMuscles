@@ -7,8 +7,7 @@ extends Node
 ##   aliases (optional: other names search matches, e.g. "pec deck"), cardioEffort + cardioNote (cardio
 ##   exercises: the effort a session defaults to)}] sorted by name; exerciseById
 ## - presets: [{id, name, kind "sport"/"physique", summary, offsets {regionId: sets}, cardio {lightId:
-##   minutes a week}, keyExercises [exerciseId]}]; presetById; presetBaseline (the baseline they were
-##   researched at)
+##   minutes a week}, keyExercises [exerciseId]}]; presetById
 ## - cardioEfforts [{id, label, hint, zone}] + effortById; cardioLights [{id, name, colour "red"/"blue",
 ##   zones {z1, z2, z3: 0..1}, explain}]; cardioDefaultTarget {lightId: minutes a week}
 ## - getRegion(id) / regionName(id) / regionBand(id) / getExercise(id) / exerciseShare(exerciseId, regionId)
@@ -62,7 +61,6 @@ var searchNames: Dictionary = {}
 var searchOrder: Array = []
 var presets: Array = []
 var presetById: Dictionary = {}
-var presetBaseline: int = 12
 var cardioEfforts: Array = []
 var effortById: Dictionary = {}
 var cardioLights: Array = []
@@ -129,7 +127,6 @@ func loadAll(folder: String) -> bool:
 
 	# target presets and the cardio model
 	presets = targetFile["presets"]
-	presetBaseline = int(targetFile["baseline"])
 	presetById.clear()
 	for preset in presets:
 		presetById[preset["id"]] = preset

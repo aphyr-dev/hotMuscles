@@ -9,8 +9,7 @@ extends RefCounted
 ## - colours: colour(key) (current theme palette), statusColour(status)
 ## - text: formatClock(seconds) "mm:ss" / "h:mm:ss", formatLength(seconds) "52 min",
 ##   formatSets(value) "2.5", dayLabel(unix) "Sun 4 Oct", timeLabel(unix) "18:20",
-##   weekRangeLabel(nowUnix) "Sep 28 - Oct 4", periodRangeLabel(period, nowUnix) (day / week / month
-##   / year), monthLabel(unix) "Oct 2026", greeting(name, nowUnix), exerciseMeta(exercise),
+##   periodRangeLabel(period, nowUnix) (day / week / month / year), monthLabel(unix) "Oct 2026", greeting(name, nowUnix), exerciseMeta(exercise),
 ##   setCount(entries) (sets in a list of entries), statusText(status)
 
 ### /// TUNING ///
@@ -230,15 +229,6 @@ static func dayLabel(unix: float) -> String:
 static func timeLabel(unix: float) -> String:
 	var date: Dictionary = localDate(unix)
 	return "%02d:%02d" % [int(date["hour"]), int(date["minute"])]
-
-
-static func weekRangeLabel(nowUnix: float) -> String:
-	# the rolling week: six days ago to today
-	var first: Dictionary = localDate(nowUnix - 6.0 * HeatEngine.daySeconds)
-	var last: Dictionary = localDate(nowUnix)
-	var firstText: String = "%s %d" % [monthNames[int(first["month"]) - 1], int(first["day"])]
-	var lastText: String = "%s %d" % [monthNames[int(last["month"]) - 1], int(last["day"])]
-	return "%s – %s" % [firstText, lastText]
 
 
 static func periodRangeLabel(period: String, nowUnix: float) -> String:
