@@ -43,7 +43,7 @@ from pathlib import Path
 ### /// TUNING ///
 
 # top folders that must never be inside a build
-forbiddenFolders = ["tests", "tools", "docs", "data", "models", "renders", "mockups", "icons", "builds"]
+forbiddenFolders = ["tests", "tools", "docs", "data", "models", "renders", "mockups", "icons", "builds", "review"]
 # files that must be inside every build
 requiredFiles = ["appData/exercises.json", "appData/muscles.json", "appData/targets.json"]
 # folder of files that must ship byte for byte identical to the project's copy (every png in it)
