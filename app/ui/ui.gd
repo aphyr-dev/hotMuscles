@@ -9,7 +9,8 @@ extends RefCounted
 ## - colours: colour(key) (current theme palette), statusColour(status)
 ## - text: formatClock(seconds) "mm:ss" / "h:mm:ss", formatLength(seconds) "52 min",
 ##   formatSets(value) "2.5", dayLabel(unix) "Sun 4 Oct", timeLabel(unix) "18:20",
-##   weekRangeLabel(nowUnix) "Sep 28 - Oct 4", greeting(name, nowUnix), exerciseMeta(exercise),
+##   weekRangeLabel(nowUnix) "Sep 28 - Oct 4", periodRangeLabel(period, nowUnix) (day / week / month
+##   / year), monthLabel(unix) "Oct 2026", greeting(name, nowUnix), exerciseMeta(exercise),
 ##   setCount(entries) (sets in a list of entries), statusText(status)
 
 ### /// TUNING ///
@@ -238,6 +239,26 @@ static func weekRangeLabel(nowUnix: float) -> String:
 	var firstText: String = "%s %d" % [monthNames[int(first["month"]) - 1], int(first["day"])]
 	var lastText: String = "%s %d" % [monthNames[int(last["month"]) - 1], int(last["day"])]
 	return "%s – %s" % [firstText, lastText]
+
+
+static func periodRangeLabel(period: String, nowUnix: float) -> String:
+	### WHAT THIS DOES
+	# the dates a home period covers: "Sat 10 Oct", "Oct 4 – Oct 10", "Sep 11 – Oct 10", "Oct 2025 – Oct 2026"
+
+	var days: float = float(HeatEngine.periodDays.get(period, 7.0))
+	var first: Dictionary = localDate(nowUnix - (days - 1.0) * HeatEngine.daySeconds)
+	var last: Dictionary = localDate(nowUnix)
+
+	if period == "day":
+		return dayLabel(nowUnix)
+	if period == "year":
+		return "%s %d – %s %d" % [monthNames[int(first["month"]) - 1], int(first["year"]), monthNames[int(last["month"]) - 1], int(last["year"])]
+	return "%s %d – %s %d" % [monthNames[int(first["month"]) - 1], int(first["day"]), monthNames[int(last["month"]) - 1], int(last["day"])]
+
+
+static func monthLabel(unix: float) -> String:
+	var date: Dictionary = localDate(unix)
+	return "%s %d" % [monthNames[int(date["month"]) - 1], int(date["year"])]
 
 
 static func greeting(personName: String, nowUnix: float) -> String:

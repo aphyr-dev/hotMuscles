@@ -1,9 +1,12 @@
 class_name WeekScreen
 extends AppScreen
-## WeekScreen - home: the rolling last 7 days
+## WeekScreen - home: today, the rolling week, the last 30 days or the last 12 months
 ## what this offers
 ## - header (greeting, "This week", date range, workouts, total sets) and a settings button
-## - body card with the week's heat (the heat gradient and 0-N slider, like the workout card; its own N)
+## - Day | Week | Month | Year: setPeriod(periodId) - remembered (homePeriod). Day = today's raw sets,
+##   week = the rolling 7 days, month and year = AVERAGE sets per week (the 0-N slider is always the
+##   weekly scale); each switch lights the body up again over exactly 3 s
+## - body card with the period's heat (the heat gradient and 0-N slider, like the workout card; its own N)
 ## - Balance | Workouts tabs: showTab("balance" / "workouts")
 ## - openRegion(regionId) -> the region sheet (sets, band, short/over, contributions, Find exercises)
 ## - workouts tab: tap = openEditor(workoutId); delete with undo = deleteWorkout(workoutId);
@@ -15,14 +18,19 @@ extends AppScreen
 ##   by workout, oldest first, muscle by muscle from the top of the body down - each muscle flashes
 ##   as its heat lands, each finished workout pulses as a whole. A tap on the body, leaving the page or
 ##   any saved change ends it on the real week at once. replaying() says whether it runs
-## - refresh(animate); weekHeat (regionId -> effective sets) and weekWorkouts hold what is shown
+## - refresh(animate); shownHeat (regionId -> effective sets, per week for month/year), shownWorkouts
+##   and weeksCovered (what the period's totals were divided by) hold what is shown
 
 ### /// TUNING ///
 
 # tallest the body gets on the week card
 const bodyMaxHeight: float = 470.0
-# body card title and hint (the replay shows its own while it runs)
-const cardTitle: String = "Sets this week"
+# the period chips, the page title, the body card title and the words for "when" per period (the
+# replay shows its own card title while it runs)
+const periodOptions: Array = [["day", "Day"], ["week", "Week"], ["month", "Month"], ["year", "Year"]]
+const pageTitles: Dictionary = {"day": "Today", "week": "This week", "month": "This month", "year": "This year"}
+const cardTitles: Dictionary = {"day": "Sets today", "week": "Sets this week", "month": "Sets per week · average", "year": "Sets per week · average"}
+const periodWords: Dictionary = {"day": "today", "week": "in the last 7 days", "month": "in the last 30 days", "year": "in the last 12 months"}
 const cardHint: String = "Tap a muscle for details · pinch to zoom"
 # seconds the heat takes to blend after finishing a workout (normal changes use BodyView's own)
 const finishBlendSeconds: float = 1.8
@@ -34,6 +42,9 @@ const mainButtonHeight: float = 58.0
 # then rows made per frame after that until all 30 are there - all at once cost a ~50 ms frame
 const firstBalanceRows: int = 4
 const balanceRowsPerFrame: int = 3
+# workout (and month) rows: made in the first frame, then per frame (each carries a small body)
+const firstWorkoutRows: int = 4
+const workoutRowsPerFrame: int = 2
 # week replay on start: wait before the first muscle (the page settles), seconds per muscle at most and
 # at least, pause after each workout, and the longest the whole replay may take (muscles speed up to fit)
 const replayStartDelay: float = 0.45
@@ -46,6 +57,11 @@ const replayMaxSeconds: float = 4.5
 const replayBlendSeconds: float = 0.25
 const replayMuscleFlash: float = 1.0
 const replayWorkoutFlash: float = 0.45
+# switching the period: the light-up always takes exactly this long, starts after this, and pauses
+# between its steps (workouts, weeks or months) at most this share of the time in total
+const switchReplaySeconds: float = 3.0
+const switchReplayStartDelay: float = 0.15
+const switchPauseShare: float = 0.2
 
 ### /// STATE ///
 
@@ -59,14 +75,22 @@ var balanceBox: VBoxContainer = null
 var workoutsBox: VBoxContainer = null
 var startButton: Button = null
 var currentTab: String = "balance"
-var weekHeat: Dictionary = {}
-var weekWorkouts: Array = []
+var period: String = "week"
+var periodChips: Segmented = null
+var pageTitle: Label = null
+var shownHeat: Dictionary = {}
+var shownWorkouts: Array = []
+var weeksCovered: float = 1.0
+var allWorkouts: Array = []
 var balanceNote: Label = null
 var balanceRanks: Array = []
 var balanceRows: Dictionary = {}
 var balancePending: bool = false
 var workoutsShown: String = ""
+var workoutsNote: Label = null
 var workoutRows: Dictionary = {}
+var workoutPlan: Array = []
+var workoutsPending: bool = false
 var regionSheet: BottomSheet = null
 var dirty: bool = true
 var normalBlendSeconds: float = 0.9
@@ -109,9 +133,10 @@ func _build() -> void:
 	var titles: VBoxContainer = Ui.vbox(2)
 	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(titles)
+	period = str(Storage.settings["homePeriod"])
 	greetingLabel = Ui.label("", "MutedLabel")
 	titles.add_child(greetingLabel)
-	var pageTitle: Label = Ui.label("This week", "HeaderLabel")
+	pageTitle = Ui.label(pageTitles[period], "HeaderLabel")
 	titles.add_child(pageTitle)
 	statsLabel = Ui.wrapLabel("", "MutedLabel")
 	titles.add_child(statsLabel)
@@ -120,10 +145,17 @@ func _build() -> void:
 	settingsButton.pressed.connect(_onSettingsPressed)
 	header.add_child(settingsButton)
 
+	# day / week / month / year
+	periodChips = Segmented.new()
+	periodChips.fillWidth = true
+	column.add_child(periodChips)
+	periodChips.setOptions(periodOptions, period)
+	periodChips.changed.connect(setPeriod)
+
 	# body card
 	bodyCard = BodyCard.new()
 	column.add_child(bodyCard)
-	bodyCard.configure(cardTitle, bodyMaxHeight, "rangeWeek", true, cardHint)
+	bodyCard.configure(cardTitle(), bodyMaxHeight, "rangeWeek", true, cardHint)
 	bodyCard.regionTapped.connect(_onBodyRegionTapped)
 	bodyCard.emptyTapped.connect(_onBodyEmptyTapped)
 	normalBlendSeconds = bodyCard.bodyView.transitionSeconds
@@ -193,36 +225,74 @@ func _applySettings() -> void:
 		bodyCard.setView(defaultView)
 
 
+func _bias() -> float:
+	# minutes the local clock runs ahead of UTC (for "today")
+	return float(Time.get_time_zone_from_system().get("bias", 0))
+
+
+func cardTitle() -> String:
+	return str(cardTitles[period])
+
+
+func averaged() -> bool:
+	# month and year show sets per week, averaged over the weeks they cover
+	return period == "month" or period == "year"
+
+
 func refresh(animate: bool) -> void:
 	### WHAT THIS DOES
-	# recomputes the rolling week from storage and redraws everything on the page
+	# recomputes the shown period from storage and redraws everything on the page
 
 	var now: float = _now()
-	var submitted: Array = Storage.submittedWorkouts()
 
 	if replaying():
 		_endReplay()
 	dirty = false
-	weekWorkouts = HeatEngine.workoutsInWindow(submitted, now)
-	weekHeat = HeatEngine.weekHeat(submitted, AppData.exerciseById, now)
+	allWorkouts = Storage.submittedWorkouts()
+	shownWorkouts = HeatEngine.periodWorkouts(allWorkouts, period, now, _bias())
+	weeksCovered = HeatEngine.periodWeeks(allWorkouts, period, now)
+	var totalHeat: Dictionary = HeatEngine.effectiveSets(HeatEngine.weekEntries(shownWorkouts), AppData.exerciseById)
+	shownHeat = HeatEngine.scaleHeat(totalHeat, 1.0 / weeksCovered)
 
 	# header
-	var totalSets: int = Ui.setCount(HeatEngine.weekEntries(weekWorkouts))
+	var totalSets: int = Ui.setCount(HeatEngine.weekEntries(shownWorkouts))
 	var workoutWord: String = "workouts"
-	if weekWorkouts.size() == 1:
+	if shownWorkouts.size() == 1:
 		workoutWord = "workout"
 	greetingLabel.text = Ui.greeting(str(Storage.profile["name"]), now)
-	statsLabel.text = "%s · %d %s · %d sets" % [Ui.weekRangeLabel(now), weekWorkouts.size(), workoutWord, totalSets]
+	pageTitle.text = pageTitles[period]
+	if averaged():
+		statsLabel.text = "%s · %d %s · %s sets a week" % [Ui.periodRangeLabel(period, now), shownWorkouts.size(), workoutWord, Ui.formatSets(float(totalSets) / weeksCovered)]
+	else:
+		statsLabel.text = "%s · %d %s · %d sets" % [Ui.periodRangeLabel(period, now), shownWorkouts.size(), workoutWord, totalSets]
 
 	# body
 	bodyCard.setBody(str(Storage.profile["body"]))
 	bodyCard.setGradient(str(Storage.profile["gradient"]))
+	bodyCard.setTitle(cardTitle())
 	_applySettings()
-	bodyCard.setHeat(weekHeat, animate)
+	bodyCard.setHeat(shownHeat, animate)
 
 	_fillBalance()
 	_fillWorkouts()
 	_updateStartButton()
+
+
+### /// PERIOD ///
+
+func setPeriod(periodId: String) -> void:
+	### WHAT THIS DOES
+	# shows another period: remembered for next time, the page refilled, the body lit up again over
+	# exactly switchReplaySeconds (also when the same period is picked again)
+
+	if not HeatEngine.periodIds.has(periodId):
+		return
+	period = periodId
+	periodChips.select(periodId, false)
+	if str(Storage.settings["homePeriod"]) != periodId:
+		Storage.setSetting("homePeriod", periodId)
+	refresh(false)
+	startReplay(switchReplaySeconds)
 
 
 ### /// TABS ///
@@ -247,11 +317,34 @@ func _fillBalance() -> void:
 	# rest over the next frames (_process)
 
 	if balanceNote == null:
-		balanceNote = Ui.label("Effective sets in the last 7 days against each muscle's weekly target band", "FaintLabel")
+		balanceNote = Ui.label("", "FaintLabel")
 		balanceNote.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		balanceBox.add_child(balanceNote)
-	balanceRanks = HeatEngine.rankRegions(weekHeat, AppData.regions)
+	balanceRanks = HeatEngine.rankRegions(shownHeat, AppData.regions)
+	if period == "day":
+		balanceRanks = _todayRanks(balanceRanks)
+	balanceNote.text = _balanceNoteText()
 	_placeBalanceRows(firstBalanceRows)
+
+
+func _balanceNoteText() -> String:
+	if period == "day" and balanceRanks.is_empty():
+		return "Nothing trained today yet - the muscles you work show up here, as part of their weekly target."
+	if period == "day":
+		return "Effective sets today, as part of each muscle's weekly target band"
+	if averaged():
+		return "Average effective sets per week %s against each muscle's weekly target band" % periodWords[period]
+	return "Effective sets in the last 7 days against each muscle's weekly target band"
+
+
+func _todayRanks(ranks: Array) -> Array:
+	# the day view lists only the muscles worked today, most sets first
+	var worked: Array = []
+	for rank in ranks:
+		if float(rank["sets"]) >= HeatEngine.missedBelow:
+			worked.append(rank)
+	worked.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["sets"]) > float(b["sets"]))
+	return worked
 
 
 func _placeBalanceRows(newRowLimit: int) -> void:
@@ -261,8 +354,15 @@ func _placeBalanceRows(newRowLimit: int) -> void:
 
 	var made: int = 0
 	var place: int = 1
+	var listed: Dictionary = {}
 
+	# rows of muscles this list leaves out (the day view) are hidden, the rest shown
 	balancePending = false
+	for rank in balanceRanks:
+		listed[str(rank["region"])] = true
+	for regionId in balanceRows:
+		balanceRows[regionId]["row"].visible = listed.has(regionId)
+
 	for rank in balanceRanks:
 		var regionId: String = str(rank["region"])
 		if not balanceRows.has(regionId):
@@ -300,9 +400,14 @@ func _balanceRow(regionId: String, regionName: String) -> Dictionary:
 
 
 func _updateBalanceRow(parts: Dictionary, rank: Dictionary) -> void:
+	# the day view tags how much of the weekly target today gave; the others the usual status
 	var band: Array = rank["band"]
 	parts["amount"].text = "%s / %d–%d" % [Ui.formatSets(rank["sets"]), int(band[0]), int(band[1])]
-	Ui.retag(parts["status"], Ui.statusText(rank["status"]), Ui.statusColour(rank["status"]))
+	if period == "day":
+		var percent: int = int(roundf(100.0 * float(rank["sets"]) / maxf(float(band[0]), 0.001)))
+		Ui.retag(parts["status"], "%d%% of week" % percent, Ui.colour("accent"))
+	else:
+		Ui.retag(parts["status"], Ui.statusText(rank["status"]), Ui.statusColour(rank["status"]))
 	parts["bar"].setValues(float(rank["sets"]), band, str(rank["status"]))
 
 
@@ -310,25 +415,34 @@ func _updateBalanceRow(parts: Dictionary, rank: Dictionary) -> void:
 
 func _fillWorkouts() -> void:
 	### WHAT THIS DOES
-	# the workouts of the rolling week, newest first; tap to edit, swipe or "..." for more; a row is
-	# only made again when something it shows changed (its workout, the body, the colours, the 0-N
-	# range, the date - day names follow it), otherwise it is kept and moved into place
+	# the period's workouts newest first (the year view: one row per month instead); a row is only
+	# made again when something it shows changed (its workouts, the body, the colours, the 0-N range,
+	# the date - day names follow it), otherwise kept and moved into place; missing rows are made a
+	# few per frame (_process), each carries a small body
 
-	var newestFirst: Array = weekWorkouts.duplicate()
-	var shared: String = JSON.stringify([Storage.profile["body"], Storage.profile["gradient"], Storage.settings["rangeWorkout"], Time.get_date_string_from_system()])
-	var keptRows: Dictionary = {}
-	var place: int = 1
+	var shared: String = JSON.stringify([Storage.profile["body"], Storage.profile["gradient"], Storage.settings["rangeWorkout"], Storage.settings["rangeWeek"], Time.get_date_string_from_system()])
+	var planned: Dictionary = {}
 
-	newestFirst.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["startedAt"]) > float(b["startedAt"]))
+	# the plan: what rows the list should hold, in order
+	workoutPlan = []
+	if period == "year":
+		for bucket in _monthBuckets():
+			workoutPlan.append({"key": "month" + JSON.stringify(bucket["workouts"]) + shared, "month": bucket})
+	else:
+		var newestFirst: Array = shownWorkouts.duplicate()
+		newestFirst.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["startedAt"]) > float(b["startedAt"]))
+		for workout in newestFirst:
+			workoutPlan.append({"key": JSON.stringify(workout) + shared, "workout": workout})
 
-	# nothing this week: the hint text instead of rows
-	if newestFirst.is_empty():
-		if workoutsShown == "empty":
+	# nothing in the period: the hint text instead of rows
+	if workoutPlan.is_empty():
+		workoutsPending = false
+		if workoutsShown == "empty" + period:
 			return
-		workoutsShown = "empty"
+		workoutsShown = "empty" + period
 		Ui.clearChildren(workoutsBox)
 		workoutRows = {}
-		var empty: Label = Ui.wrapLabel("No workouts in the last 7 days yet. Start one with the button below - it shows up here when you finish it.", "MutedLabel")
+		var empty: Label = Ui.wrapLabel("No workouts %s yet. Start one with the button below - it shows up here when you finish it." % periodWords[period], "MutedLabel")
 		workoutsBox.add_child(Ui.margin(empty, 4, 8, 4, 8))
 		return
 
@@ -337,23 +451,133 @@ func _fillWorkouts() -> void:
 		workoutsShown = "rows"
 		Ui.clearChildren(workoutsBox)
 		workoutRows = {}
-		workoutsBox.add_child(Ui.label("Tap to edit · swipe left to delete, right to save as a template", "FaintLabel"))
+		workoutsNote = Ui.label("", "FaintLabel")
+		workoutsNote.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		workoutsBox.add_child(workoutsNote)
+	workoutsNote.text = "Tap to edit · swipe left to delete, right to save as a template"
+	if period == "year":
+		workoutsNote.text = "Each month: workouts, sets and its average week on the body"
 
-	# rows: kept when unchanged, made when new, in newest-first order; the rest go away
-	for workout in newestFirst:
-		var rowKey: String = JSON.stringify(workout) + shared
-		var row: TapRow = workoutRows.get(rowKey, null)
-		if row == null:
-			row = _workoutRow(workout)
-			workoutsBox.add_child(row)
-		keptRows[rowKey] = row
-		workoutsBox.move_child(row, place)
-		place += 1
-	for rowKey in workoutRows:
-		if not keptRows.has(rowKey):
+	# rows that left the plan go at once, the rest are placed (and made) by _placeWorkoutRows
+	for item in workoutPlan:
+		planned[item["key"]] = true
+	for rowKey in workoutRows.keys():
+		if not planned.has(rowKey):
 			workoutsBox.remove_child(workoutRows[rowKey])
 			workoutRows[rowKey].queue_free()
-	workoutRows = keptRows
+			workoutRows.erase(rowKey)
+	_placeWorkoutRows(firstWorkoutRows)
+
+
+func _placeWorkoutRows(newRowLimit: int) -> void:
+	# puts the planned rows in order, making at most newRowLimit missing ones (the rest next frame)
+	var made: int = 0
+	var place: int = 1
+
+	workoutsPending = false
+	for item in workoutPlan:
+		var row: Control = workoutRows.get(item["key"], null)
+		if row == null:
+			if made >= newRowLimit:
+				workoutsPending = true
+				return
+			if item.has("month"):
+				row = _monthRow(item["month"])
+			else:
+				row = _workoutRow(item["workout"])
+			workoutsBox.add_child(row)
+			workoutRows[item["key"]] = row
+			made += 1
+		workoutsBox.move_child(row, place)
+		place += 1
+
+
+func _monthBuckets() -> Array:
+	### WHAT THIS DOES
+	# the year view's months, newest first: [{label, workouts, weeks}] - weeks = the part of the month
+	# inside the year and after the first workout ever, in weeks (at least 1), to average it by
+
+	var buckets: Dictionary = {}
+	var now: float = _now()
+	var firstEver: float = now
+	var windowStart: float = now - float(HeatEngine.periodDays["year"]) * HeatEngine.daySeconds
+	var bias: float = _bias()
+	var ordered: Array = []
+
+	for workout in allWorkouts:
+		firstEver = minf(firstEver, HeatEngine.workoutTime(workout))
+	for workout in shownWorkouts:
+		var when: float = HeatEngine.workoutTime(workout)
+		var date: Dictionary = Ui.localDate(when)
+		var key: String = "%04d-%02d" % [int(date["year"]), int(date["month"])]
+		if not buckets.has(key):
+			var monthStart: float = Time.get_unix_time_from_datetime_dict({"year": int(date["year"]), "month": int(date["month"]), "day": 1, "hour": 0, "minute": 0, "second": 0}) - bias * 60.0
+			var nextYear: int = int(date["year"])
+			var nextMonth: int = int(date["month"]) + 1
+			if nextMonth > 12:
+				nextMonth = 1
+				nextYear += 1
+			var monthEnd: float = Time.get_unix_time_from_datetime_dict({"year": nextYear, "month": nextMonth, "day": 1, "hour": 0, "minute": 0, "second": 0}) - bias * 60.0
+			var from: float = maxf(monthStart, maxf(windowStart, firstEver))
+			var to: float = minf(monthEnd, now)
+			var weeks: float = maxf((to - from) / HeatEngine.daySeconds / 7.0, 1.0)
+			buckets[key] = {"key": key, "label": Ui.monthLabel(when), "workouts": [], "weeks": weeks}
+		buckets[key]["workouts"].append(workout)
+
+	var keys: Array = buckets.keys()
+	keys.sort()
+	keys.reverse()
+	for key in keys:
+		ordered.append(buckets[key])
+	return ordered
+
+
+func _monthRow(bucket: Dictionary) -> PanelContainer:
+	### WHAT THIS DOES
+	# one month of the year view: a small body with its average week, workouts, sets, the top muscles
+
+	var row := PanelContainer.new()
+	var entries: Array = HeatEngine.weekEntries(bucket["workouts"])
+	var heat: Dictionary = HeatEngine.scaleHeat(HeatEngine.effectiveSets(entries, AppData.exerciseById), 1.0 / float(bucket["weeks"]))
+	var line: HBoxContainer = Ui.hbox(12)
+	var count: int = bucket["workouts"].size()
+
+	row.add_theme_stylebox_override("panel", AppTheme.box("row"))
+	row.add_child(line)
+	row.set_meta("month", bucket["key"])
+
+	var thumb := BodyView.new()
+	thumb.interactive = false
+	thumb.viewMode = "both"
+	thumb.edgeMargin = 2.0
+	thumb.pairGap = 0.02
+	thumb.custom_minimum_size = thumbSize
+	thumb.body = str(Storage.profile["body"])
+	thumb.gradientId = str(Storage.profile["gradient"])
+	thumb.rangeMax = float(Storage.settings["rangeWeek"])
+	line.add_child(thumb)
+	thumb.setHeat(heat, false)
+
+	var texts: VBoxContainer = Ui.vbox(2)
+	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	texts.alignment = BoxContainer.ALIGNMENT_CENTER
+	line.add_child(texts)
+	texts.add_child(Ui.label(str(bucket["label"]), "BoldLabel"))
+	var workoutWord: String = "workouts"
+	if count == 1:
+		workoutWord = "workout"
+	texts.add_child(Ui.label("%d %s · %d sets · %s a week" % [count, workoutWord, Ui.setCount(entries), Ui.formatSets(float(count) / float(bucket["weeks"]))], "MutedLabel"))
+	var top: Array = heat.keys()
+	top.sort_custom(func(a: String, b: String) -> bool: return float(heat[a]) > float(heat[b]))
+	var names: Array = []
+	for regionId in top.slice(0, 3):
+		names.append(AppData.regionName(regionId).to_lower())
+	var most: Label = Ui.label("most: %s" % ", ".join(names), "FaintLabel")
+	most.clip_text = true
+	most.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	most.custom_minimum_size.x = 60.0
+	texts.add_child(most)
+	return row
 
 
 func _workoutRow(workout: Dictionary) -> TapRow:
@@ -473,9 +697,10 @@ func _onTemplateNamed(actionId: String, sheet: BottomSheet, entries: Array) -> v
 
 func openRegion(regionId: String) -> BottomSheet:
 	### WHAT THIS DOES
-	# sets this week, the band, how far off, which exercises gave how much, Find exercises
+	# the period's sets (per week for month and year), the band, how far off, which exercises gave how
+	# much, Find exercises
 
-	var sets: float = float(weekHeat.get(regionId, 0.0))
+	var sets: float = float(shownHeat.get(regionId, 0.0))
 	var band: Array = AppData.regionBand(regionId)
 	var status: String = HeatEngine.targetStatus(sets, band)
 	var region: Dictionary = AppData.getRegion(regionId)
@@ -483,32 +708,43 @@ func openRegion(regionId: String) -> BottomSheet:
 	var viewWords: Array = region.get("views", [])
 
 	bodyCard.bodyView.selectedRegion = regionId
-	sheet.setTitle(str(region.get("name", regionId)), "%s view · last 7 days" % " + ".join(viewWords))
+	var when: String = str(periodWords[period])
+	if averaged():
+		when = "per week, averaged %s" % when
+	sheet.setTitle(str(region.get("name", regionId)), "%s view · %s" % [" + ".join(viewWords), when])
 
 	# three stat tiles
 	var tiles: HBoxContainer = Ui.hbox(8)
 	sheet.body.add_child(tiles)
-	tiles.add_child(_statTile(Ui.formatSets(sets), "sets this week", null))
-	tiles.add_child(_statTile("%d–%d" % [int(band[0]), int(band[1])], "target band", null))
-	var offText: String = "on target"
-	if sets < float(band[0]):
-		offText = "%s short" % Ui.formatSets(float(band[0]) - sets)
-	elif sets > float(band[1]):
-		offText = "%s over" % Ui.formatSets(sets - float(band[1]))
-	tiles.add_child(_statTile("", offText, Ui.tag(Ui.statusText(status), Ui.statusColour(status))))
+	var setsWords: Dictionary = {"day": "sets today", "week": "sets this week", "month": "sets a week", "year": "sets a week"}
+	tiles.add_child(_statTile(Ui.formatSets(sets), setsWords[period], null))
+	tiles.add_child(_statTile("%d–%d" % [int(band[0]), int(band[1])], "weekly target", null))
+	if period == "day":
+		var percent: int = int(roundf(100.0 * sets / maxf(float(band[0]), 0.001)))
+		tiles.add_child(_statTile("%d%%" % percent, "of the week's low end", null))
+	else:
+		var offText: String = "on target"
+		if sets < float(band[0]):
+			offText = "%s short" % Ui.formatSets(float(band[0]) - sets)
+		elif sets > float(band[1]):
+			offText = "%s over" % Ui.formatSets(sets - float(band[1]))
+		tiles.add_child(_statTile("", offText, Ui.tag(Ui.statusText(status), Ui.statusColour(status))))
 
-	# where it came from
-	var contributions: Array = HeatEngine.contributions(regionId, HeatEngine.weekEntries(weekWorkouts), AppData.exerciseById)
+	# where it came from (per week for month and year)
+	var contributions: Array = HeatEngine.contributions(regionId, HeatEngine.weekEntries(shownWorkouts), AppData.exerciseById)
 	var heading: HBoxContainer = Ui.hbox(8)
 	heading.add_child(Ui.label("Where it came from", "BoldLabel"))
 	heading.add_child(Ui.spacer())
-	heading.add_child(Ui.label("effective sets", "FaintLabel"))
+	if averaged():
+		heading.add_child(Ui.label("effective sets a week", "FaintLabel"))
+	else:
+		heading.add_child(Ui.label("effective sets", "FaintLabel"))
 	sheet.body.add_child(heading)
 	if contributions.is_empty():
-		sheet.body.add_child(Ui.wrapLabel("Nothing worked this muscle in the last 7 days.", "MutedLabel"))
+		sheet.body.add_child(Ui.wrapLabel("Nothing worked this muscle %s." % periodWords[period], "MutedLabel"))
 	var biggest: float = 0.0
 	for row in contributions:
-		biggest = maxf(biggest, float(row["effective"]))
+		biggest = maxf(biggest, float(row["effective"]) / weeksCovered)
 	for row in contributions:
 		sheet.body.add_child(_contributionRow(row, biggest))
 
@@ -543,13 +779,17 @@ func _contributionRow(row: Dictionary, biggest: float) -> VBoxContainer:
 	box.add_child(top)
 	var nameLabel: Label = Ui.wrapLabel(str(row["name"]), "BoldLabel")
 	top.add_child(nameLabel)
-	top.add_child(Ui.label(Ui.formatSets(float(row["effective"])), "BoldLabel"))
-	box.add_child(Ui.label("%d sets × %s" % [int(row["sets"]), Ui.formatSets(float(row["share"]))], "MutedLabel"))
+	var effective: float = float(row["effective"]) / weeksCovered
+	top.add_child(Ui.label(Ui.formatSets(effective), "BoldLabel"))
+	var detail: String = "%d sets × %s" % [int(row["sets"]), Ui.formatSets(float(row["share"]))]
+	if averaged():
+		detail = "%d sets × %s %s" % [int(row["sets"]), Ui.formatSets(float(row["share"])), periodWords[period]]
+	box.add_child(Ui.label(detail, "MutedLabel"))
 	var bar := ProgressBar.new()
 	bar.show_percentage = false
 	bar.custom_minimum_size.y = 6.0
 	bar.max_value = maxf(biggest, 0.001)
-	bar.value = float(row["effective"])
+	bar.value = effective
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(bar)
 	return box
@@ -589,6 +829,8 @@ func _process(delta: float) -> void:
 		_stepReplay(delta)
 	if balancePending:
 		_placeBalanceRows(balanceRowsPerFrame)
+	if workoutsPending:
+		_placeWorkoutRows(workoutRowsPerFrame)
 	if is_visible_in_tree() and Storage.hasCurrentWorkout():
 		_updateStartButton()
 
@@ -631,55 +873,116 @@ func replaying() -> bool:
 	return replaySteps.size() > 0
 
 
-func startReplay() -> void:
+func startReplay(exactSeconds: float = 0.0) -> void:
 	### WHAT THIS DOES
 	# empties the body and lays out every step of the replay on a clock: one step per muscle of each
-	# workout (oldest workout first, muscles in body order), a pulse step closing each workout
+	# group (oldest first, muscles in body order), a pulse step closing each group. Groups are the
+	# workouts (day, week), the rolling weeks (month) or the months (year). exactSeconds 0 = the app
+	# start pacing (muscles as slow as allowed, at most replayMaxSeconds); above 0 the last pulse lands
+	# exactly then (a period switch)
 
-	var oldestFirst: Array = weekWorkouts.duplicate()
+	var groups: Array = _replayGroups()
 	var muscleCount: int = 0
-	var perWorkout: Array = []
+	var perGroup: Array = []
 
-	if oldestFirst.is_empty():
+	if groups.is_empty():
 		return
-	oldestFirst.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["startedAt"]) < float(b["startedAt"]))
 
-	# each workout's muscles, top of the body down (AppData.regions is in body order)
-	for workout in oldestFirst:
-		var heat: Dictionary = HeatEngine.effectiveSets(workout["entries"], AppData.exerciseById)
+	# each group's muscles, top of the body down (AppData.regions is in body order)
+	for group in groups:
 		var muscles: Array = []
 		for region in AppData.regions:
-			var amount: float = float(heat.get(region["id"], 0.0))
+			var amount: float = float(group["heat"].get(region["id"], 0.0))
 			if amount > 0.0:
 				muscles.append({"region": region["id"], "amount": amount})
+		if muscles.is_empty():
+			continue
 		muscleCount += muscles.size()
-		perWorkout.append({"workout": workout, "muscles": muscles})
+		perGroup.append({"caption": group["caption"], "muscles": muscles})
 	if muscleCount == 0:
 		return
 
-	# time per muscle: as slow as allowed while the whole replay fits in replayMaxSeconds
-	var pauses: float = replayStartDelay + replayWorkoutPause * perWorkout.size()
-	var muscleSeconds: float = clampf((replayMaxSeconds - pauses) / muscleCount, replayMuscleSecondsMin, replayMuscleSecondsMax)
-	var at: float = replayStartDelay
+	# the clock
+	var startDelay: float = replayStartDelay
+	var pause: float = replayWorkoutPause
+	var muscleSeconds: float = 0.0
+	if exactSeconds > 0.0:
+		startDelay = switchReplayStartDelay
+		pause = minf(replayWorkoutPause, switchPauseShare * exactSeconds / float(perGroup.size()))
+		muscleSeconds = (exactSeconds - startDelay - pause * float(perGroup.size() - 1)) / float(muscleCount)
+	else:
+		var pauses: float = startDelay + pause * perGroup.size()
+		muscleSeconds = clampf((replayMaxSeconds - pauses) / muscleCount, replayMuscleSecondsMin, replayMuscleSecondsMax)
+
+	# the steps (a group's pulse fires with its last muscle)
+	var at: float = startDelay
 	replaySteps = []
-	for index in range(perWorkout.size()):
-		var started: float = float(perWorkout[index]["workout"]["startedAt"])
-		var caption: String = "%s · %d/%d" % [Ui.dayLabel(started), index + 1, perWorkout.size()]
+	for index in range(perGroup.size()):
+		var caption: String = "%s · %d/%d" % [perGroup[index]["caption"], index + 1, perGroup.size()]
 		var regionIds: Array = []
-		for muscle in perWorkout[index]["muscles"]:
+		for muscle in perGroup[index]["muscles"]:
+			at += muscleSeconds
 			replaySteps.append({"at": at, "kind": "muscle", "region": muscle["region"], "amount": muscle["amount"], "caption": caption})
 			regionIds.append(muscle["region"])
-			at += muscleSeconds
 		replaySteps.append({"at": at, "kind": "pulse", "regions": regionIds})
-		at += replayWorkoutPause
+		if index < perGroup.size() - 1:
+			at += pause
 
 	# start from an empty body
 	replayClock = 0.0
 	replayHeat = {}
 	bodyCard.bodyView.transitionSeconds = replayBlendSeconds
 	bodyCard.setHeat({}, false)
-	bodyCard.setTitle("Your week")
+	bodyCard.setTitle(pageTitles[period])
 	bodyCard.setHint("Tap the body to skip")
+
+
+func replayLength() -> float:
+	# when the last step of the running replay fires (0 = none running)
+	if replaySteps.is_empty():
+		return 0.0
+	return float(replaySteps[replaySteps.size() - 1]["at"])
+
+
+func _replayGroups() -> Array:
+	### WHAT THIS DOES
+	# [{caption, heat}] oldest first, heat already divided like the shown period (so the replay ends on
+	# exactly what the body shows): a workout each for day and week, a rolling week each for month,
+	# a calendar month each for year
+
+	var groups: Array = []
+	var scale: float = 1.0 / weeksCovered
+	var now: float = _now()
+
+	if period == "year":
+		var months: Array = _monthBuckets()
+		months.reverse()
+		for bucket in months:
+			var heat: Dictionary = HeatEngine.effectiveSets(HeatEngine.weekEntries(bucket["workouts"]), AppData.exerciseById)
+			groups.append({"caption": bucket["label"], "heat": HeatEngine.scaleHeat(heat, scale)})
+		return groups
+	if period == "month":
+		var weekCount: int = int(ceilf(float(HeatEngine.periodDays["month"]) / 7.0))
+		for weeksBack in range(weekCount - 1, -1, -1):
+			var newest: float = now - float(weeksBack) * 7.0 * HeatEngine.daySeconds
+			var oldest: float = newest - 7.0 * HeatEngine.daySeconds
+			var inside: Array = []
+			for workout in shownWorkouts:
+				var when: float = HeatEngine.workoutTime(workout)
+				if when > oldest and when <= newest:
+					inside.append(workout)
+			if inside.is_empty():
+				continue
+			var heat: Dictionary = HeatEngine.effectiveSets(HeatEngine.weekEntries(inside), AppData.exerciseById)
+			groups.append({"caption": "Week of %s" % Ui.dayLabel(oldest + HeatEngine.daySeconds), "heat": HeatEngine.scaleHeat(heat, scale)})
+		return groups
+
+	var oldestFirst: Array = shownWorkouts.duplicate()
+	oldestFirst.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["startedAt"]) < float(b["startedAt"]))
+	for workout in oldestFirst:
+		var heat: Dictionary = HeatEngine.effectiveSets(workout["entries"], AppData.exerciseById)
+		groups.append({"caption": Ui.dayLabel(float(workout["startedAt"])), "heat": HeatEngine.scaleHeat(heat, scale)})
+	return groups
 
 
 func _stepReplay(delta: float) -> void:
@@ -705,7 +1008,7 @@ func _stepReplay(delta: float) -> void:
 func _endReplay() -> void:
 	# straight to the real week (a skip lands softly; after the last step it is already there)
 	replaySteps = []
-	bodyCard.setTitle(cardTitle)
+	bodyCard.setTitle(cardTitle())
 	bodyCard.setHint(cardHint)
-	bodyCard.setHeat(weekHeat, true)
+	bodyCard.setHeat(shownHeat, true)
 	get_tree().create_timer(replayBlendSeconds + 0.1).timeout.connect(_restoreBlend)

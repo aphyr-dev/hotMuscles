@@ -5,7 +5,8 @@ extends Node
 ## - profile       {name, body "male"/"female", gradient, theme (palette id), style, setupDone}
 ## - settings      {hideUntouched, newExerciseSets 0/1,
 ##                  defaultView "front"/"back"/"both", rangeWeek, rangeWorkout,
-##                  workoutShowWeek (the workout body adds the last 7 days)}
+##                  workoutShowWeek (the workout body adds the last 7 days),
+##                  homePeriod "day"/"week"/"month"/"year" (what the home page shows)}
 ## - workouts      {submitted: [workout], current: workout or null}
 ##                  workout = {id, startedAt, endedAt, entries: [{exerciseId, sets, grips}]} (unix seconds)
 ## - templates     [{id, name, entries: [{exerciseId, sets, grips}]}]
@@ -71,6 +72,7 @@ func defaultSettings() -> Dictionary:
 		"rangeWeek": 12,
 		"rangeWorkout": 5,
 		"workoutShowWeek": false,
+		"homePeriod": "week",
 	}
 
 
@@ -224,6 +226,9 @@ func _cleanSettings() -> void:
 	settings["rangeWorkout"] = clampi(int(settings["rangeWorkout"]), rangeMinValue, rangeMaxValue)
 	settings["hideUntouched"] = bool(settings["hideUntouched"])
 	settings["workoutShowWeek"] = bool(settings["workoutShowWeek"])
+	settings["homePeriod"] = str(settings["homePeriod"])
+	if not HeatEngine.periodIds.has(settings["homePeriod"]):
+		settings["homePeriod"] = "week"
 
 
 func _cleanWorkout(workout: Dictionary) -> Dictionary:

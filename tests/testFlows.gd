@@ -52,6 +52,7 @@ func _run() -> void:
 	await _checkStartAtZero()
 	await _checkEditor()
 	await _checkDeleteUndo()
+	await _checkPeriods()
 	await _checkRestart()
 	await _checkSettings()
 	await _checkRegionSheetToPicker()
@@ -276,7 +277,7 @@ func _checkWorkoutFlow() -> void:
 	firstTemplateId = storage.templates[0]["id"]
 	_expectTrue("landed on the week", _isA(app.top(), "WeekScreen"))
 	_expectTrue("no workout running", not storage.hasCurrentWorkout())
-	_expectNear("week heat: chest", float(week.weekHeat.get("lowerChest", 0.0)), 4.0 * _share(bench, "lowerChest"))
+	_expectNear("week heat: chest", float(week.shownHeat.get("lowerChest", 0.0)), 4.0 * _share(bench, "lowerChest"))
 	_expectTrue("finish blend is the slow one", week.bodyCard.bodyView.transitionSeconds > 1.0)
 	_expectTrue("the change is animating (not landed yet)", absf(float(week.bodyCard.bodyView.heatShown().get("lowerChest", 0.0)) - 4.0 * _share(bench, "lowerChest")) > 0.01)
 	await _wait(blendSeconds)
@@ -295,8 +296,8 @@ func _checkTemplateApplyAndDiscard() -> void:
 	_expectTrue("replay starts from an empty body", week.bodyCard.bodyView.heatShown().is_empty())
 	await _wait(week.replayMaxSeconds + 0.5)
 	_expectTrue("replay ends by itself", not week.replaying())
-	_expectNear("replay lands on the week", float(week.bodyCard.bodyView.heatShown().get("lowerChest", 0.0)), float(week.weekHeat.get("lowerChest", 0.0)))
-	_expectEqual("replay gives the title back", week.bodyCard.titleLabel.text, week.cardTitle)
+	_expectNear("replay lands on the week", float(week.bodyCard.bodyView.heatShown().get("lowerChest", 0.0)), float(week.shownHeat.get("lowerChest", 0.0)))
+	_expectEqual("replay gives the title back", week.bodyCard.titleLabel.text, week.cardTitle())
 	week.startReplay()
 	week._onBodyEmptyTapped()
 	_expectTrue("a tap on the body skips the replay", not week.replaying())
@@ -437,7 +438,7 @@ func _checkEditor() -> void:
 	_expectEqual("saved sets", storage.submittedWorkouts()[0]["entries"][0]["sets"], 6)
 	_expectEqual("0-set entry dropped on save", storage.submittedWorkouts()[0]["entries"].size(), 2)
 	_expectTrue("back on the week", _isA(app.top(), "WeekScreen"))
-	_expectNear("week heat follows the edit", float(week.weekHeat.get("lowerChest", 0.0)), 6.0 * _share(bench, "lowerChest"))
+	_expectNear("week heat follows the edit", float(week.shownHeat.get("lowerChest", 0.0)), 6.0 * _share(bench, "lowerChest"))
 
 
 func _checkDeleteUndo() -> void:
@@ -454,6 +455,75 @@ func _checkDeleteUndo() -> void:
 	_expectEqual("undo restores it", storage.submittedWorkouts().size(), before)
 	_expectEqual("week rows back", week.workoutsBox.get_child_count(), before + 1)
 	_expectTrue("toast gone after undo", not app.toast.isShowing())
+
+
+### /// PERIODS ///
+
+func _checkPeriods() -> void:
+	### WHAT THIS DOES
+	# day / week / month / year on the home page: an old workout (20 days back) joins the month and
+	# year, which show sets PER WEEK (divided by the weeks since the first workout); each switch lights
+	# the body up over exactly 3 s and lands on the shown heat; the pick is remembered
+
+	var week: Node = app.weekScreen()
+	var now: float = Time.get_unix_time_from_system()
+	var oldTime: float = now - 20.0 * 86400.0
+	var old: Dictionary = {"id": "wPeriodOld", "startedAt": oldTime, "endedAt": oldTime + 3600.0, "entries": [{"exerciseId": bench, "sets": 3, "grips": false}]}
+	var recent: int = storage.submittedWorkouts().size()
+
+	storage.restoreWorkout(old)
+	await _wait(0.1)
+	var weekChest: float = float(week.shownHeat.get("lowerChest", 0.0))
+	_expectEqual("week leaves the old workout out", week.shownWorkouts.size(), recent)
+
+	# month: the old workout counts, everything per week over the 20 days since the first workout
+	week.setPeriod("month")
+	_expectEqual("month: title", week.pageTitle.text, "This month")
+	_expectEqual("month: the old workout is in", week.shownWorkouts.size(), recent + 1)
+	var weeksExpected: float = (now - oldTime - 3600.0) / 86400.0 / 7.0
+	_expectNear("month: weeks covered = since the old workout ended", week.weeksCovered, weeksExpected)
+	_expectNear("month: chest per week", float(week.shownHeat.get("lowerChest", 0.0)), (weekChest + 3.0 * _share(bench, "lowerChest")) / weeksExpected)
+	_expectTrue("switch lights the body up", week.replaying() and week.bodyCard.bodyView.heatShown().is_empty())
+	_expectNear("the light-up takes exactly 3 s", week.replayLength(), 3.0, 0.01)
+	_expectTrue("stats line reads per week", week.statsLabel.text.ends_with("sets a week"))
+	await _wait(3.4)
+	_expectTrue("light-up ends by itself", not week.replaying())
+	_expectNear("light-up lands on the month", float(week.bodyCard.bodyView.heatShown().get("lowerChest", 0.0)), float(week.shownHeat.get("lowerChest", 0.0)))
+	_expectEqual("month remembered", storage.settings["homePeriod"], "month")
+
+	# year: one row per calendar month that has a workout
+	var bias: int = int(Time.get_time_zone_from_system().get("bias", 0))
+	var months: Dictionary = {}
+	for workout in storage.submittedWorkouts():
+		var date: Dictionary = Time.get_datetime_dict_from_unix_time(int(workout["endedAt"]) + bias * 60)
+		months["%d-%d" % [int(date["year"]), int(date["month"])]] = true
+	week.showTab("workouts")
+	week.setPeriod("year")
+	await _wait(settleSeconds)
+	_expectEqual("year: a row per month", week.workoutsBox.get_child_count() - 1, months.size())
+	_expectTrue("year: rows are months", week.workoutsBox.get_child(1).has_meta("month"))
+	_expectNear("year: same weeks covered as the month here", week.weeksCovered, weeksExpected)
+
+	# day: today only, raw; the balance lists only the muscles worked today
+	week.showTab("balance")
+	week.setPeriod("day")
+	await _wait(settleSeconds)
+	_expectEqual("day: title", week.pageTitle.text, "Today")
+	_expectNear("day: raw sets", week.weeksCovered, 1.0)
+	var shownRows: int = 0
+	for regionId in week.balanceRows:
+		if week.balanceRows[regionId]["row"].visible:
+			shownRows += 1
+	_expectEqual("day: balance lists the worked muscles only", shownRows, week.balanceRanks.size())
+	_expectTrue("day: fewer than all 30", week.balanceRanks.size() < 30 and week.balanceRanks.size() > 0)
+
+	# back to the week; the old workout goes again
+	week.setPeriod("week")
+	week._onBodyEmptyTapped()
+	storage.deleteWorkout("wPeriodOld")
+	await _wait(0.1)
+	_expectNear("week again", float(week.shownHeat.get("lowerChest", 0.0)), weekChest)
+	_expectEqual("week remembered", storage.settings["homePeriod"], "week")
 
 
 ### /// RESTART ///
@@ -531,7 +601,7 @@ func _checkRegionSheetToPicker() -> void:
 	_expectEqual("region sheet title", sheet.titleLabel.text, "Mid/lower chest")
 	_expectEqual("region outlined on the body", week.bodyCard.bodyView.selectedRegion, "lowerChest")
 	_expectEqual("contributions listed (only the bench reaches it)", int(sheet.get_meta("contributionCount")), 1)
-	_expectTrue("sets this week shown", _findText(sheet, _formatSets(float(week.weekHeat["lowerChest"]))))
+	_expectTrue("sets this week shown", _findText(sheet, _formatSets(float(week.shownHeat["lowerChest"]))))
 	sheet.choose("find")
 	await _wait(settleSeconds)
 	var picker: Node = app.top()
@@ -595,9 +665,10 @@ func _checkPickerFilters() -> void:
 	app.toast.pressAction()
 	_expectTrue("hide undo", not bool(storage.getPref(curl)["hidden"]))
 
-	# the rough data marker on non-curated rows, never on curated ones (kettlebells: mostly rough);
+	# the rough data marker on non-curated rows, never on curated ones (medicine ball: 11 rough of 17, all
+	# on the first page - checked ones list first);
 	# the list makes its first rows at once and the rest over the next frames
-	picker.setEquipment(["kettlebells", "barbell"])
+	picker.setEquipment(["medicine ball"])
 	_expectEqual("the first rows are there at once", picker.shownCount, mini(picker.firstRows, picker.results.size()))
 	await _wait(settleSeconds)
 	_expectTrue("the rest of the batch follows within a moment (%d rows)" % picker.shownCount, picker.shownCount >= mini(picker.pageSize, picker.results.size()))

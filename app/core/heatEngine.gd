@@ -8,6 +8,9 @@ extends RefCounted
 ## - entryHeat(entry, exerciseById)                   the same for one entry
 ## - workoutsInWindow(workouts, nowUnix, days = 7)    submitted workouts inside the rolling window
 ## - weekEntries(workouts) / weekHeat(workouts, exerciseById, nowUnix, days = 7)
+## - periodWorkouts(workouts, period, nowUnix, biasMinutes)  a home period's workouts (day/week/month/year)
+## - periodWeeks(workouts, period, nowUnix)           what its heat divides by to read "per week"
+## - dayStart(nowUnix, biasMinutes) local midnight;   scaleHeat(heat, factor)
 ## - targetStatus(sets, band) -> "missed" / "under" / "ok" / "over"; allStatuses(heat, regions)
 ## - offTarget(sets, band) signed distance from the band (- under, + over, 0 inside)
 ## - rankRegions(heat, regions)                       regions sorted by how far off target
@@ -36,6 +39,10 @@ const recommendUsedBonus: float = 0.05
 const recommendCuratedBonus: float = 0.03
 # effective sets below this count as "unused" (0% worked) for the picker's filter by unused
 const unusedBelow: float = 0.01
+
+# the home page's periods and how many days each looks back (day = since local midnight)
+const periodIds: Array = ["day", "week", "month", "year"]
+const periodDays: Dictionary = {"day": 1.0, "week": 7.0, "month": 30.0, "year": 365.0}
 
 const statusMissed: String = "missed"
 const statusUnder: String = "under"
@@ -113,6 +120,53 @@ static func weekEntries(workouts: Array) -> Array:
 static func weekHeat(workouts: Array, exerciseById: Dictionary, nowUnix: float, days: float = 7.0) -> Dictionary:
 	# effective sets of the rolling week
 	return effectiveSets(weekEntries(workoutsInWindow(workouts, nowUnix, days)), exerciseById)
+
+
+### /// PERIODS ///
+
+static func dayStart(nowUnix: float, biasMinutes: float) -> float:
+	# the local midnight before nowUnix (bias = minutes the local clock runs ahead of UTC)
+	var local: float = nowUnix + biasMinutes * 60.0
+	return nowUnix - fposmod(local, daySeconds)
+
+
+static func periodWorkouts(workouts: Array, period: String, nowUnix: float, biasMinutes: float) -> Array:
+	### WHAT THIS DOES
+	# the workouts a home period shows: day = since local midnight, the others a rolling window
+
+	var inside: Array = []
+
+	if period == "day":
+		var start: float = dayStart(nowUnix, biasMinutes)
+		for workout in workouts:
+			if workoutTime(workout) >= start:
+				inside.append(workout)
+		return inside
+	return workoutsInWindow(workouts, nowUnix, float(periodDays.get(period, 7.0)))
+
+
+static func periodWeeks(workouts: Array, period: String, nowUnix: float) -> float:
+	### WHAT THIS DOES
+	# what a period's heat is divided by to read "per week": 1 for day and week; for month and year
+	# the weeks covered - from the first workout ever (so a new user is not averaged over empty
+	# weeks), at least one week, at most the whole period
+
+	var first: float = nowUnix
+
+	if period == "day" or period == "week" or workouts.is_empty():
+		return 1.0
+	for workout in workouts:
+		first = minf(first, workoutTime(workout))
+	var days: float = clampf((nowUnix - first) / daySeconds, 7.0, float(periodDays.get(period, 7.0)))
+	return days / 7.0
+
+
+static func scaleHeat(heat: Dictionary, factor: float) -> Dictionary:
+	# every region's sets times factor
+	var scaled: Dictionary = {}
+	for regionId in heat:
+		scaled[regionId] = float(heat[regionId]) * factor
+	return scaled
 
 
 ### /// TARGETS ///
