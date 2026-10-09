@@ -16,6 +16,7 @@ const defaultPalette: String = "ember"
 
 const stylePaths: Array = [
 	"res://app/looks/styles/modern.gd",
+	"res://app/looks/styles/frutiger.gd",
 ]
 
 const palettePaths: Array = [

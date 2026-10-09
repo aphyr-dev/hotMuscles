@@ -582,6 +582,22 @@ func _checkSettings() -> void:
 	await _wait(0.2)
 	_expectEqual("theme applied", appTheme.currentId, "ocean")
 	_expectEqual("settings rebuilt in the new theme", settings.themeChoice.selectedId, "ocean")
+
+	# style: Frutiger builds every screen again in its look with Settings open on top again; a style
+	# that is not installed falls back to Modern
+	settings.setStyle("frutiger")
+	await _wait(settleSeconds)
+	_expectEqual("style applied", appTheme.currentStyleId, "frutiger")
+	_expectTrue("settings open again on top", _isA(app.top(), "SettingsScreen"))
+	_expectTrue("the week was built again", app.weekScreen() != week)
+	settings = app.top()
+	settings.setStyle("noSuchStyle")
+	await _wait(settleSeconds)
+	_expectEqual("an unknown style falls back to modern", appTheme.currentStyleId, "modern")
+	storage.setProfile("style", "modern")
+	await _wait(0.2)
+	week = app.weekScreen()
+	body = week.bodyCard.bodyView
 	app.goBack()
 	await _wait(settleSeconds)
 	# profile changes reach the week when it shows again
