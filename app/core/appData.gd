@@ -19,7 +19,8 @@ extends Node
 ##       computed here): {viewBox: Rect2, bounds: Rect2 (figure + seam border, for layout),
 ##       mapFile: res path of the baked region map, mapRect: Rect2 (where the map sits, drawing units),
 ##       taps: [{region, polygon: PackedVector2Array (<= 32 corners), box: Rect2}],
-##       centres: {regionId: Vector2}}
+##       centres: {regionId: Vector2}, anchors: {regionId: {"l"/"r"/"c": Vector2}} (the middle of each
+##       side's biggest piece)}
 ## - bodyMap(body, view)  the region map as a texture, loaded once and shared; a missing map is a loud
 ##       error and returns null. Every map starts decoding on a worker thread as soon as the data
 ##       loads, so the first figure only waits for its own map and the others are ready later for free
@@ -309,6 +310,7 @@ func bodyView(body: String, view: String) -> Dictionary:
 	var key: String = body + "/" + view
 	var taps: Array = []
 	var centres: Dictionary = {}
+	var anchors: Dictionary = {}
 
 	if viewCache.has(key):
 		return viewCache[key]
@@ -317,9 +319,21 @@ func bodyView(body: String, view: String) -> Dictionary:
 		return {}
 	var source: Dictionary = bodies[body][view]
 
-	# tap shapes (hit testing) and region centres
+	# tap shapes (hit testing), region centres, and per side the middle of each region's biggest piece
+	# (the cardio overlay draws its vessels through these)
+	var biggest: Dictionary = {}
 	for tap in source["taps"]:
-		taps.append({"region": tap["region"], "polygon": _toPolygon(tap["polygon"]), "box": _toRect(tap["box"])})
+		var box: Rect2 = _toRect(tap["box"])
+		taps.append({"region": tap["region"], "polygon": _toPolygon(tap["polygon"]), "box": box})
+		var side: String = str(tap.get("side", "c"))
+		var sideKey: String = "%s/%s" % [tap["region"], side]
+		if not biggest.has(sideKey) or box.get_area() > biggest[sideKey].get_area():
+			biggest[sideKey] = box
+	for sideKey in biggest:
+		var parts: PackedStringArray = sideKey.split("/")
+		if not anchors.has(parts[0]):
+			anchors[parts[0]] = {}
+		anchors[parts[0]][parts[1]] = biggest[sideKey].get_center()
 	for regionId in source["centres"]:
 		var point: Array = source["centres"][regionId]
 		centres[regionId] = Vector2(point[0], point[1])
@@ -331,6 +345,7 @@ func bodyView(body: String, view: String) -> Dictionary:
 		"mapRect": _toRect(source["map"]["rect"]),
 		"taps": taps,
 		"centres": centres,
+		"anchors": anchors,
 	}
 	viewCache[key] = prepared
 	return prepared

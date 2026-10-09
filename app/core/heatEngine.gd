@@ -1,7 +1,8 @@
 class_name HeatEngine
 extends RefCounted
 ## what this offers - the heat maths, all static, no state, no autoload needed
-## an ENTRY is {exerciseId: String, sets: int, grips: bool}
+## an ENTRY is {exerciseId: String, sets: int, grips: bool} plus, on a cardio exercise, {minutes: int,
+## effort: String (AppData.effortById)}; isLogged(entry) = it has sets or minutes (0 of both = planned)
 ## a WORKOUT is {id, startedAt, endedAt, entries: [entry...]} (unix seconds; endedAt 0 = still running)
 ## `exerciseById` is AppData.exerciseById (id -> exercise dict with targets [{region, share}], forearmKind)
 ## - effectiveSets(entries, exerciseById)            regionId -> effective sets (sum of sets x share)
@@ -15,11 +16,23 @@ extends RefCounted
 ## - offTarget(sets, band) signed distance from the band (- under, + over, 0 inside)
 ## - rankRegions(heat, regions)                       regions sorted by how far off target
 ## - contributions(regionId, entries, exerciseById)   which exercises gave a region how much
-## - recommend(regionId, exercises, options)          exercise picker order for "tap a muscle"
-## - unusedRegions(heat, regionIds)                   regionId -> true for every muscle at 0 sets
-## - unusedFirst(exercises, unused)                   picker order for "filter by unused": the most
-##                                                    share on unused muscles first, the rest after in
-##                                                    their old order; [{exercise, share}]
+## - recommend(regionIds, exercises, options)         exercise picker order for one or several tapped
+##                                                    muscles (share = the sum over them)
+## - unusedRegions(heat, regionIds)                   regionId -> 1.0 for every muscle at 0 sets
+## - weightedFirst(exercises, weights)                picker order for "unused" / "below target": the
+##                                                    most share x weight first, the rest after in their
+##                                                    old order; [{exercise, share}]
+## target presets (offsets from a baseline, see AppData.presets) and cardio:
+## - regionTargets(presets, baseline)                 regionId -> weekly sets: the highest of
+##                                                    max(0, baseline + offset) over the presets
+## - targetHeat(heat, targets, rangeMax)              heat redrawn as "share of target" on the 0-N scale
+##                                                    (at target = N); muscles with no target left out
+## - onTarget(heat, targets) / belowTarget(heat, targets)   ids at or over target / regionId -> how
+##                                                    much of the target is missing (0..1)
+## - cardioMinutes(entries, effortById, lights)       lightId -> minutes (each effort's zone lights them)
+## - cardioTargets(presets, defaultTarget)            lightId -> weekly minutes: the default or the
+##                                                    highest preset, whichever is more
+## - healthMinutes(lightMinutes)                      easy + 2 x hard, the WHO number (150 / 300)
 
 ### /// TUNING ///
 
@@ -44,6 +57,12 @@ const unusedBelow: float = 0.01
 const periodIds: Array = ["day", "week", "month", "year"]
 const periodDays: Dictionary = {"day": 1.0, "week": 7.0, "month": 30.0, "year": 365.0}
 
+# the health line: a minute of each light counts this much toward the WHO guideline (150 a week
+# minimum, 300 for the extra benefit) - a hard minute counts double
+const healthWeights: Dictionary = {"easyCardio": 1.0, "hardCardio": 2.0}
+const healthMinimum: float = 150.0
+const healthExtra: float = 300.0
+
 const statusMissed: String = "missed"
 const statusUnder: String = "under"
 const statusOk: String = "ok"
@@ -51,6 +70,11 @@ const statusOver: String = "over"
 
 
 ### /// EFFECTIVE SETS ///
+
+static func isLogged(entry: Dictionary) -> bool:
+	# done, not just planned: some sets, or some cardio minutes
+	return int(entry.get("sets", 0)) > 0 or int(entry.get("minutes", 0)) > 0
+
 
 static func entryHeat(entry: Dictionary, exerciseById: Dictionary) -> Dictionary:
 	### WHAT THIS DOES
@@ -280,10 +304,10 @@ static func _contributionBefore(a: Dictionary, b: Dictionary) -> bool:
 
 ### /// RECOMMENDATIONS ///
 
-static func recommend(regionId: String, exercises: Array, options: Dictionary = {}) -> Array:
+static func recommend(regionIds: Array, exercises: Array, options: Dictionary = {}) -> Array:
 	### WHAT THIS DOES
-	# picker order for a tapped muscle: biggest share first, then ones that hit it without loading
-	# much else; favourites and previously used get a small boost
+	# picker order for the tapped muscles: biggest share on them first (summed over several), then
+	# ones that hit them without loading much else; favourites and previously used get a small boost
 	# options (all optional):
 	#   prefs: exerciseId -> {favourite, hidden}   (Storage.exercisePrefs)
 	#   used: exerciseId -> anything                (ids used before)
@@ -297,8 +321,11 @@ static func recommend(regionId: String, exercises: Array, options: Dictionary = 
 	var equipment: Array = options.get("equipment", [])
 	var showHidden: bool = bool(options.get("showHidden", false))
 	var limit: int = int(options.get("limit", 0))
+	var wanted: Dictionary = {}
 	var rows: Array = []
 
+	for regionId in regionIds:
+		wanted[regionId] = true
 	for exercise in exercises:
 		# filters
 		if equipment.size() > 0 and not equipment.has(exercise.get("equipment", "")):
@@ -307,13 +334,13 @@ static func recommend(regionId: String, exercises: Array, options: Dictionary = 
 		if bool(pref.get("hidden", false)) and not showHidden:
 			continue
 
-		# share on this muscle and focus (its part of everything the exercise loads)
+		# share on the tapped muscles and focus (their part of everything the exercise loads)
 		var share: float = 0.0
 		var total: float = 0.0
 		for target in exercise.get("targets", []):
 			total += float(target["share"])
-			if target["region"] == regionId:
-				share = float(target["share"])
+			if wanted.has(target["region"]):
+				share += float(target["share"])
 		if share <= 0.0:
 			continue
 		var focus: float = share / maxf(total, 0.0001)
@@ -340,22 +367,22 @@ static func _recommendBefore(a: Dictionary, b: Dictionary) -> bool:
 	return a["exercise"]["name"] < b["exercise"]["name"]
 
 
-### /// UNUSED MUSCLES ///
+### /// UNUSED AND BELOW-TARGET ORDER ///
 
 static func unusedRegions(heat: Dictionary, regionIds: Array) -> Dictionary:
-	# every muscle the heat leaves at 0
+	# every muscle the heat leaves at 0, each weighted 1
 	var unused: Dictionary = {}
 	for regionId in regionIds:
 		if float(heat.get(regionId, 0.0)) < unusedBelow:
-			unused[regionId] = true
+			unused[regionId] = 1.0
 	return unused
 
 
-static func unusedFirst(exercises: Array, unused: Dictionary) -> Array:
+static func weightedFirst(exercises: Array, weights: Dictionary) -> Array:
 	### WHAT THIS DOES
-	# reorders a list (nothing is dropped): exercises with more share on unused muscles first; equal
-	# ones, and every exercise that misses them all, keep the order they came in. Shares go into
-	# buckets of 0.01 sets and only the bucket keys are sorted (a custom sort of ~880 rows cost a
+	# reorders a list (nothing is dropped): exercises with more share x weight on the weighted muscles
+	# first; equal ones, and every exercise that misses them all, keep the order they came in. Scores
+	# go into buckets of 0.01 and only the bucket keys are sorted (a custom sort of ~900 rows cost a
 	# whole frame)
 
 	var buckets: Dictionary = {}
@@ -365,8 +392,8 @@ static func unusedFirst(exercises: Array, unused: Dictionary) -> Array:
 	for exercise in exercises:
 		var share: float = 0.0
 		for target in exercise.get("targets", []):
-			if unused.has(target["region"]):
-				share += float(target["share"])
+			if weights.has(target["region"]):
+				share += float(target["share"]) * float(weights[target["region"]])
 		var key: int = roundi(share * 100.0)
 		if not buckets.has(key):
 			buckets[key] = []
@@ -376,3 +403,91 @@ static func unusedFirst(exercises: Array, unused: Dictionary) -> Array:
 	for index in range(keys.size() - 1, -1, -1):
 		rows.append_array(buckets[keys[index]])
 	return rows
+
+
+### /// TARGET PRESETS ///
+
+static func regionTargets(presets: Array, baseline: float) -> Dictionary:
+	### WHAT THIS DOES
+	# the weekly sets each muscle should get with these presets on: per preset baseline + offset (never
+	# below 0), and the highest of them wins; no presets = no targets ({})
+
+	var targets: Dictionary = {}
+
+	for preset in presets:
+		var offsets: Dictionary = preset.get("offsets", {})
+		for regionId in offsets:
+			var wanted: float = maxf(baseline + float(offsets[regionId]), 0.0)
+			if not targets.has(regionId) or wanted > float(targets[regionId]):
+				targets[regionId] = wanted
+	return targets
+
+
+static func targetHeat(heat: Dictionary, targets: Dictionary, rangeMax: float) -> Dictionary:
+	# each muscle's sets as a share of its target, on the 0-N scale (at target = N, the hot end);
+	# muscles with no target (or a 0 target) are left out, so they draw plain
+	var shown: Dictionary = {}
+	for regionId in targets:
+		if float(targets[regionId]) <= 0.0:
+			continue
+		shown[regionId] = float(heat.get(regionId, 0.0)) / float(targets[regionId]) * rangeMax
+	return shown
+
+
+static func onTarget(heat: Dictionary, targets: Dictionary) -> Array:
+	# the muscles with a target that got at least that much
+	var met: Array = []
+	for regionId in targets:
+		if float(targets[regionId]) > 0.0 and float(heat.get(regionId, 0.0)) >= float(targets[regionId]):
+			met.append(regionId)
+	return met
+
+
+static func belowTarget(heat: Dictionary, targets: Dictionary) -> Dictionary:
+	# regionId -> the missing part of its target (0..1) for every muscle short of it
+	var below: Dictionary = {}
+	for regionId in targets:
+		var wanted: float = float(targets[regionId])
+		var done: float = float(heat.get(regionId, 0.0))
+		if wanted > 0.0 and done < wanted:
+			below[regionId] = (wanted - done) / wanted
+	return below
+
+
+### /// CARDIO ///
+
+static func cardioMinutes(entries: Array, effortById: Dictionary, lights: Array) -> Dictionary:
+	### WHAT THIS DOES
+	# minutes per cardio light: each entry's minutes go to the lights its effort's zone feeds
+	# (AppData.cardioLights zones: how much of a minute in each zone lights it)
+
+	var minutes: Dictionary = {}
+
+	for light in lights:
+		minutes[light["id"]] = 0.0
+	for entry in entries:
+		var amount: float = float(entry.get("minutes", 0))
+		if amount <= 0.0 or not effortById.has(str(entry.get("effort", ""))):
+			continue
+		var zone: String = str(effortById[str(entry["effort"])]["zone"])
+		for light in lights:
+			minutes[light["id"]] = float(minutes[light["id"]]) + amount * float(light["zones"].get(zone, 0.0))
+	return minutes
+
+
+static func cardioTargets(presets: Array, defaultTarget: Dictionary) -> Dictionary:
+	# weekly minutes per light: the default (the WHO minimum) or the highest preset, whichever is more
+	var targets: Dictionary = defaultTarget.duplicate()
+	for preset in presets:
+		var cardio: Dictionary = preset.get("cardio", {})
+		for lightId in cardio:
+			targets[lightId] = maxf(float(targets.get(lightId, 0.0)), float(cardio[lightId]))
+	return targets
+
+
+static func healthMinutes(lightMinutes: Dictionary) -> float:
+	# the WHO number: easy minutes + 2 x hard minutes
+	var total: float = 0.0
+	for lightId in healthWeights:
+		total += float(lightMinutes.get(lightId, 0.0)) * float(healthWeights[lightId])
+	return total

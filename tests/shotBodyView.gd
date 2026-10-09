@@ -79,14 +79,14 @@ func _run() -> void:
 	await _plate("zoomUntouched", [
 		_viewSpec("male", "front", "infrared", "zoom x3 on the chest", {"zoom": 3.0, "zoomRegion": "upperChest"}),
 		_viewSpec("female", "back", "infrared", "untouched hidden", {"hideUntouched": true, "light": true}),
-		_viewSpec("male", "both", "infrared", "selected: lats", {"selected": "lats"}),
+		_viewSpec("male", "both", "infrared", "selected: lats", {"selected": ["lats"]}),
 	], heat, {})
 
 	# edges up close: the deepest zoom, with a selection, and the ghost zoomed in
 	await _plate("zoomEdges", [
-		_viewSpec("male", "front", "infrared", "zoom x6, selected: lower chest", {"zoom": 6.0, "zoomRegion": "lowerChest", "selected": "lowerChest"}),
+		_viewSpec("male", "front", "infrared", "zoom x6, selected: lower chest", {"zoom": 6.0, "zoomRegion": "lowerChest", "selected": ["lowerChest"]}),
 		_viewSpec("female", "back", "ember", "zoom x6 on the glutes", {"zoom": 6.0, "zoomRegion": "glutes"}),
-		_viewSpec("male", "back", "scarlet", "zoom x2.5, selected: lats", {"zoom": 2.5, "zoomRegion": "lats", "selected": "lats"}),
+		_viewSpec("male", "back", "scarlet", "zoom x2.5, selected: lats", {"zoom": 2.5, "zoomRegion": "lats", "selected": ["lats"]}),
 	], heat, {})
 	await _plate("zoomGhost", [
 		_viewSpec("male", "front", "infrared", "ghost zoom x4 on the abs", {"zoom": 4.0, "zoomRegion": "lowerAbs"}),
@@ -163,7 +163,7 @@ func _plate(name: String, specs: Array, heat: Dictionary, ghost: Dictionary) -> 
 		bodyView.rangeMax = plateRange
 		bodyView.gradientId = spec["colouring"]
 		bodyView.hideUntouched = bool(spec.get("hideUntouched", false))
-		bodyView.selectedRegion = str(spec.get("selected", ""))
+		bodyView.selectedRegions = spec.get("selected", [])
 		holder.add_child(bodyView)
 		if bool(spec.get("noHeat", false)):
 			bodyView.setHeat({}, false)

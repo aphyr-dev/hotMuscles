@@ -5,7 +5,7 @@ extends Control
 ## properties (set any time, it redraws):
 ##   body "male"/"female", viewMode "front"/"back"/"both",
 ##   gradientId (HeatGradients preset), rangeMax (amount mode: 0..rangeMax spans the gradient, above clips),
-##   hideUntouched (0-set regions stay plain body colour), selectedRegion (outlined), interactive
+##   hideUntouched (0-set regions stay plain body colour), selectedRegions (each outlined), interactive
 ##   (false = a picture only, e.g. thumbnails: no taps, no zoom)
 ## functions:
 ##   setHeat(regionId -> effective sets, animate = true)   colours blend smoothly to the new values
@@ -17,8 +17,11 @@ extends Control
 ##   regionCentre(regionId) -> local point well inside the region's biggest piece (Vector2.INF if not shown)
 ##   heatShown() -> the values currently drawn (mid-animation too)
 ##   heightToFitWidth(width) -> the height at which the current view fills that width exactly
-## signals: regionTapped(regionId), emptyTapped(), zoomChanged(zoom)
-## input: tap a region (finger or mouse); two-finger pinch zoom + pan; mouse wheel zooms at the
+##   setVessels({"red": 0..1, "blue": 0..1})              the cardio overlay (VesselLayer) over the
+##                                                          figures, which dim a little under it; {} hides
+## signals: regionTapped(regionId), regionLongPressed(regionId), emptyTapped(), zoomChanged(zoom)
+## input: tap a region (finger or mouse); hold one still for longPressSeconds = a long press (only
+##   when something listens to regionLongPressed; the tap is then dropped); two-finger pinch zoom + pan; mouse wheel zooms at the
 ##   cursor; one finger / mouse drag pans while zoomed; double tap resets the zoom
 ##   (while zoomed a single tap waits doubleTapSeconds to see if a second one comes)
 ## inside a KineticScroll: claims the drag only while zoomed or pinching, so the page still scrolls
@@ -28,6 +31,7 @@ extends Control
 ## colours come from the theme type "App" (bodyPlain, bodyCosmetic, bodyGap, ghost, text)
 
 signal regionTapped(regionId: String)
+signal regionLongPressed(regionId: String)
 signal emptyTapped()
 signal zoomChanged(zoom: float)
 
@@ -60,6 +64,11 @@ var resetSeconds: float = 0.28
 var tapMovePx: float = 14.0
 # a press held longer than this is not a tap
 var tapMaxSeconds: float = 0.6
+# a still press held this long is a long press (and buzzes on a phone)
+var longPressSeconds: float = 0.45
+var longPressBuzzMs: int = 30
+# how much the figures darken while the cardio vessels are drawn over them
+var vesselDim: float = 0.35
 # two taps closer than this in time and space are a double tap
 var doubleTapSeconds: float = 0.3
 var doubleTapDistancePx: float = 40.0
@@ -83,7 +92,7 @@ var viewMode: String = "front": set = _setViewMode
 var gradientId: String = "infrared": set = _setGradientId
 var rangeMax: float = 10.0: set = _setRangeMax
 var hideUntouched: bool = false: set = _setHideUntouched
-var selectedRegion: String = "": set = _setSelectedRegion
+var selectedRegions: Array = []: set = _setSelectedRegions
 var interactive: bool = true: set = _setInteractive
 
 ### /// INTERNAL STATE ///
@@ -122,6 +131,8 @@ var lastTapPos: Vector2 = Vector2.ZERO
 var pendingTapActive: bool = false
 var pendingTapRegion: String = ""
 var pendingTapAt: float = 0.0
+var longPressFired: bool = false
+var vesselLayer: VesselLayer = null
 
 
 func _init() -> void:
@@ -179,8 +190,8 @@ func _setHideUntouched(value: bool) -> void:
 	_updateColours()
 
 
-func _setSelectedRegion(value: String) -> void:
-	selectedRegion = value
+func _setSelectedRegions(value: Array) -> void:
+	selectedRegions = value.duplicate()
 	_writePalette()
 
 
@@ -225,6 +236,23 @@ func setGhost(ghost: Dictionary) -> void:
 	if ghostHeat.size() > 0:
 		set_process(true)
 	_writePalette()
+
+
+func setVessels(levels: Dictionary) -> void:
+	### WHAT THIS DOES
+	# the cardio overlay: made on first use, drawn above the figures; the figures dim under it
+
+	if vesselLayer == null and levels.size() > 0:
+		vesselLayer = VesselLayer.new()
+		vesselLayer.bodyView = self
+		add_child(vesselLayer)
+	if vesselLayer != null:
+		vesselLayer.setLevels(levels)
+	var dim: float = 0.0
+	if levels.size() > 0:
+		dim = vesselDim
+	mapMaterial.set_shader_parameter("dim", dim)
+	queue_redraw()
 
 
 func flashRegion(regionId: String, strength: float = 1.0) -> void:
@@ -301,12 +329,12 @@ func _writePalette() -> void:
 		var flags: Color = Color(0.0, 0.0, 0.0, 1.0)
 		if ghostHeat.has(regionId):
 			flags.r = 0.35 + 0.65 * clampf(float(ghostHeat[regionId]) / rangeMax, 0.0, 1.0)
-		if regionId == selectedRegion:
+		if selectedRegions.has(regionId):
 			flags.g = 1.0
 		paletteImage.set_pixel(mapId, 1, flags)
 	paletteTexture.update(paletteImage)
 
-	mapMaterial.set_shader_parameter("outlinesOn", selectedRegion != "" or ghostHeat.size() > 0)
+	mapMaterial.set_shader_parameter("outlinesOn", selectedRegions.size() > 0 or ghostHeat.size() > 0)
 	mapMaterial.set_shader_parameter("ghostColour", _themeColour("ghost", Color("#7ff0ff")))
 	mapMaterial.set_shader_parameter("haloColour", gapColour)
 	mapMaterial.set_shader_parameter("lineColour", Color.WHITE)
@@ -473,6 +501,9 @@ func _process(delta: float) -> void:
 		if _now() >= pendingTapAt:
 			pendingTapActive = false
 			_emitTap(pendingTapRegion)
+	if _watchingLongPress():
+		busy = true
+		_checkLongPress()
 	if not busy:
 		set_process(false)
 
@@ -673,15 +704,42 @@ func _onMouseButton(event: InputEventMouseButton) -> void:
 		pressTime = _now()
 		pressMaxMove = 0.0
 		panAtPress = pan
+		longPressFired = false
 		if touches.size() <= 1:
 			pinchedThisPress = false
+		if _watchingLongPress():
+			set_process(true)
 	else:
 		var wasDown: bool = mouseDown
 		mouseDown = false
 		var quick: bool = _now() - pressTime <= tapMaxSeconds
-		if wasDown and quick and not pinchedThisPress and pressMaxMove <= tapMovePx:
+		if wasDown and quick and not pinchedThisPress and not longPressFired and pressMaxMove <= tapMovePx:
 			_onTap(event.position)
 	accept_event()
+
+
+func _watchingLongPress() -> bool:
+	# a press is still down, still, not a pinch, not fired yet - and someone listens
+	if not mouseDown or longPressFired or pinchedThisPress:
+		return false
+	return regionLongPressed.get_connections().size() > 0
+
+
+func _checkLongPress() -> void:
+	### WHAT THIS DOES
+	# once the still press has lasted longPressSeconds: buzz and report the region under it (the
+	# release then is not a tap)
+
+	if pressMaxMove > tapMovePx or touches.size() >= 2:
+		return
+	if _now() - pressTime < longPressSeconds:
+		return
+	longPressFired = true
+	var regionId: String = regionAt(pressPos)
+	if regionId == "":
+		return
+	Input.vibrate_handheld(longPressBuzzMs)
+	regionLongPressed.emit(regionId)
 
 
 func _onMouseMotion(event: InputEventMouseMotion) -> void:

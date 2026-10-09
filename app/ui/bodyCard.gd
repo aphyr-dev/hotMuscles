@@ -9,13 +9,15 @@ extends VBoxContainer
 ## - bodyView (the BodyView), slider (HeatRangeSlider or null), viewChips (Segmented)
 ## - setHeat(heat, animate), setGhost(ghost), setGradient(id), setBody(body),
 ##   setView(view), setHideUntouched(hide), setHint(text), setTitle(text)
-## - addFooterChip(text) -> a toggle chip under the slider, the hint line beside it
+## - addFooterChip(text) -> a toggle chip under the slider (several sit in one row), the hint line
+##   beside them; setVessels(levels) passes the cardio overlay to the body
 ## - setRangeKey(key)   the slider now shows and writes a different Storage setting
 ## - the body is edge to edge in the card; its height fits the figures to the card width
 ##   (so "both" fills the width) and never passes maxBodyHeight
-## signals: regionTapped(regionId), emptyTapped(), viewChanged(view)
+## signals: regionTapped(regionId), regionLongPressed(regionId), emptyTapped(), viewChanged(view)
 
 signal regionTapped(regionId: String)
+signal regionLongPressed(regionId: String)
 signal emptyTapped()
 signal viewChanged(view: String)
 
@@ -36,6 +38,7 @@ var viewChips: Segmented = null
 var titleLabel: Label = null
 var hintLabel: Label = null
 var bottomBox: VBoxContainer = null
+var footerRow: HBoxContainer = null
 var maxBodyHeight: float = 470.0
 var rangeKey: String = ""
 
@@ -141,23 +144,29 @@ func setHideUntouched(hide: bool) -> void:
 
 func addFooterChip(text: String) -> Button:
 	### WHAT THIS DOES
-	# a toggle chip at the left of the hint line (the title row has no room left on a phone); the
-	# caller listens to its toggled signal
+	# a toggle chip at the left of the hint line (the title row has no room left on a phone); more
+	# chips line up after the first, the hint after the last; the caller listens to its toggled signal
 
-	var row: HBoxContainer = Ui.hbox(10)
 	var chip: Button = Ui.button(text, "ChipButton")
 
-	bottomBox.add_child(row)
-	bottomBox.move_child(row, hintLabel.get_index())
+	if footerRow == null:
+		footerRow = Ui.hbox(8)
+		bottomBox.add_child(footerRow)
+		bottomBox.move_child(footerRow, hintLabel.get_index())
+		hintLabel.reparent(footerRow)
+		hintLabel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hintLabel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		hintLabel.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	chip.toggle_mode = true
 	chip.custom_minimum_size.y = Segmented.chipHeight
 	chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(chip)
-	hintLabel.reparent(row)
-	hintLabel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hintLabel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	hintLabel.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	footerRow.add_child(chip)
+	footerRow.move_child(chip, hintLabel.get_index())
 	return chip
+
+
+func setVessels(levels: Dictionary) -> void:
+	bodyView.setVessels(levels)
 
 
 func setRangeKey(storageRangeKey: String) -> void:
@@ -220,6 +229,16 @@ func _onRangeChanged(value: int) -> void:
 
 func _onRegionTapped(regionId: String) -> void:
 	regionTapped.emit(regionId)
+
+
+func _onRegionLongPressed(regionId: String) -> void:
+	regionLongPressed.emit(regionId)
+
+
+func listenForLongPress() -> void:
+	# the body only treats a held press as a long press when someone listens - callers opt in here
+	if not bodyView.regionLongPressed.is_connected(_onRegionLongPressed):
+		bodyView.regionLongPressed.connect(_onRegionLongPressed)
 
 
 func _onEmptyTapped() -> void:

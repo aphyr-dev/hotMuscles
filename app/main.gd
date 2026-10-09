@@ -338,6 +338,18 @@ func openSettings() -> SettingsScreen:
 	return made
 
 
+func openTargets() -> TargetsScreen:
+	var made := TargetsScreen.new()
+	push(made)
+	return made
+
+
+func openTargetEditor(source: Dictionary) -> TargetEditor:
+	var made: TargetEditor = TargetEditor.create(source)
+	push(made)
+	return made
+
+
 func openProfileSetup(firstLaunch: bool) -> ProfileSetup:
 	var made: ProfileSetup = ProfileSetup.create(firstLaunch)
 	push(made)

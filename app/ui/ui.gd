@@ -285,6 +285,8 @@ static func exerciseMeta(exercise: Dictionary) -> String:
 	var parts: Array = [str(exercise.get("equipment", ""))]
 	if names.size() > 0:
 		parts.append(", ".join(names))
+	elif str(exercise.get("category", "")) == "cardio":
+		parts.append("cardio, logged in minutes")
 	else:
 		parts.append("no muscle heat")
 	return " · ".join(parts)
@@ -295,3 +297,22 @@ static func setCount(entries: Array) -> int:
 	for entry in entries:
 		total += int(entry.get("sets", 0))
 	return total
+
+
+static func minuteCount(entries: Array) -> int:
+	# cardio minutes in a list of entries
+	var total: int = 0
+	for entry in entries:
+		total += int(entry.get("minutes", 0))
+	return total
+
+
+static func workSummary(entries: Array) -> String:
+	# "12 sets", "30 min cardio" or "12 sets · 30 min cardio"
+	var sets: int = setCount(entries)
+	var minutes: int = minuteCount(entries)
+	if minutes <= 0:
+		return "%d sets" % sets
+	if sets <= 0:
+		return "%d min cardio" % minutes
+	return "%d sets · %d min cardio" % [sets, minutes]

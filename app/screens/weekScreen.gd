@@ -20,6 +20,15 @@ extends AppScreen
 ##   any saved change ends it on the real week at once. replaying() says whether it runs
 ## - refresh(animate); shownHeat (regionId -> effective sets, per week for month/year), shownWorkouts
 ##   and weeksCovered (what the period's totals were divided by) hold what is shown
+## - one-tap overlays under the body (remembered in overlayTargets / overlayCardio), each chip only
+##   there when it has something to show:
+##   Targets (a target preset is on): setTargetsOverlay(on) - the body shows each muscle's sets as a
+##     share of its target (at target = the hot end; muscles with no target stay plain), the balance
+##     rows use the targets, the hint counts how many are on target. regionTargets holds them
+##   Cardio (once any cardio was logged): setCardioOverlay(on) - red and blue vessels over the body,
+##     as bright as hard / easy cardio minutes are of their weekly target, and a cardio panel on the
+##     balance tab (both lights + the WHO health line). cardioMinutes / cardioTargets hold the numbers
+## - the balance tab starts with the targets line (which presets are on, Change -> the Targets screen)
 
 ### /// TUNING ///
 
@@ -32,6 +41,13 @@ const pageTitles: Dictionary = {"day": "Today", "week": "This week", "month": "T
 const cardTitles: Dictionary = {"day": "Sets today", "week": "Sets this week", "month": "Sets per week · average", "year": "Sets per week · average"}
 const periodWords: Dictionary = {"day": "today", "week": "in the last 7 days", "month": "in the last 30 days", "year": "in the last 12 months"}
 const cardHint: String = "Tap a muscle for details · pinch to zoom"
+const targetsCardTitle: String = "Sets vs your targets"
+# with targets on, a muscle counts as "over" past this many times its target
+const targetOverShare: float = 2.0
+# the research's one-line honesty note under the cardio panel
+const cardioNote: String = "Colours are a code, not anatomy: every minute of cardio works the whole circulation."
+# cardio panel bar height
+const cardioBarHeight: float = 10.0
 # seconds the heat takes to blend after finishing a workout (normal changes use BodyView's own)
 const finishBlendSeconds: float = 1.8
 # tiny body thumbnail on a workout row
@@ -99,6 +115,16 @@ var appliedDefaultView: String = ""
 var replaySteps: Array = []
 var replayClock: float = 0.0
 var replayHeat: Dictionary = {}
+var targetsChip: Button = null
+var cardioChip: Button = null
+var regionTargets: Dictionary = {}
+var cardioMinutes: Dictionary = {}
+var cardioTargets: Dictionary = {}
+var cardioLogged: bool = false
+var targetsLine: HBoxContainer = null
+var targetsText: Label = null
+var cardioPanel: PanelContainer = null
+var cardioBox: VBoxContainer = null
 
 
 func _ready() -> void:
@@ -159,6 +185,10 @@ func _build() -> void:
 	bodyCard.regionTapped.connect(_onBodyRegionTapped)
 	bodyCard.emptyTapped.connect(_onBodyEmptyTapped)
 	normalBlendSeconds = bodyCard.bodyView.transitionSeconds
+	targetsChip = bodyCard.addFooterChip("Targets")
+	targetsChip.toggled.connect(setTargetsOverlay)
+	cardioChip = bodyCard.addFooterChip("Cardio")
+	cardioChip.toggled.connect(setCardioOverlay)
 
 	# tabs
 	tabs = Segmented.new()
@@ -192,8 +222,12 @@ func _now() -> float:
 
 
 func _onStorageChanged(section: String) -> void:
+	# settings: the slider (every target counts from it), the active presets and the overlay chips
 	if section == "settings":
 		_applySettings()
+		if bodyCard != null and not replaying():
+			_readTargets()
+			_applyOverlays(false)
 		return
 	if section == "exercisePrefs":
 		return
@@ -231,6 +265,8 @@ func _bias() -> float:
 
 
 func cardTitle() -> String:
+	if targetsOn():
+		return targetsCardTitle
 	return str(cardTitles[period])
 
 
@@ -253,9 +289,14 @@ func refresh(animate: bool) -> void:
 	weeksCovered = HeatEngine.periodWeeks(allWorkouts, period, now)
 	var totalHeat: Dictionary = HeatEngine.effectiveSets(HeatEngine.weekEntries(shownWorkouts), AppData.exerciseById)
 	shownHeat = HeatEngine.scaleHeat(totalHeat, 1.0 / weeksCovered)
+	var totalMinutes: Dictionary = HeatEngine.cardioMinutes(HeatEngine.weekEntries(shownWorkouts), AppData.effortById, AppData.cardioLights)
+	cardioMinutes = HeatEngine.scaleHeat(totalMinutes, 1.0 / weeksCovered)
+	cardioLogged = Targets.hasCardio()
+	_readTargets()
 
 	# header
 	var totalSets: int = Ui.setCount(HeatEngine.weekEntries(shownWorkouts))
+	var totalCardio: int = Ui.minuteCount(HeatEngine.weekEntries(shownWorkouts))
 	var workoutWord: String = "workouts"
 	if shownWorkouts.size() == 1:
 		workoutWord = "workout"
@@ -265,17 +306,112 @@ func refresh(animate: bool) -> void:
 		statsLabel.text = "%s · %d %s · %s sets a week" % [Ui.periodRangeLabel(period, now), shownWorkouts.size(), workoutWord, Ui.formatSets(float(totalSets) / weeksCovered)]
 	else:
 		statsLabel.text = "%s · %d %s · %d sets" % [Ui.periodRangeLabel(period, now), shownWorkouts.size(), workoutWord, totalSets]
+	if totalCardio > 0:
+		statsLabel.text += " · %d min cardio" % int(roundf(float(totalCardio) / weeksCovered))
+		if averaged():
+			statsLabel.text += " a week"
 
 	# body
 	bodyCard.setBody(str(Storage.profile["body"]))
 	bodyCard.setGradient(str(Storage.profile["gradient"]))
-	bodyCard.setTitle(cardTitle())
 	_applySettings()
-	bodyCard.setHeat(shownHeat, animate)
-
-	_fillBalance()
+	_applyOverlays(animate)
 	_fillWorkouts()
 	_updateStartButton()
+
+
+### /// OVERLAYS ///
+
+func targetsOn() -> bool:
+	return bool(Storage.settings["overlayTargets"]) and regionTargets.size() > 0
+
+
+func cardioOn() -> bool:
+	return bool(Storage.settings["overlayCardio"]) and cardioLogged
+
+
+func setTargetsOverlay(on: bool) -> void:
+	if on != bool(Storage.settings["overlayTargets"]):
+		Storage.setSetting("overlayTargets", on)
+	_applyOverlays(true)
+
+
+func setCardioOverlay(on: bool) -> void:
+	if on != bool(Storage.settings["overlayCardio"]):
+		Storage.setSetting("overlayCardio", on)
+	_applyOverlays(true)
+
+
+func _readTargets() -> void:
+	# the switched-on presets' numbers (they count from the slider, so they follow it)
+	regionTargets = Targets.regionTargets()
+	cardioTargets = Targets.cardioTargets()
+
+
+func displayHeat(heat: Dictionary) -> Dictionary:
+	# what the body draws for some heat: the sets as they are, or with targets on each muscle's share
+	# of its target on the 0-N scale
+	if targetsOn():
+		return HeatEngine.targetHeat(heat, regionTargets, float(Storage.settings["rangeWeek"]))
+	return heat
+
+
+func cardioLevels() -> Dictionary:
+	# how full each cardio light is (0..1) by its colour, for the vessels
+	var levels: Dictionary = {}
+	for light in AppData.cardioLights:
+		var wanted: float = maxf(float(cardioTargets.get(light["id"], 0.0)), 1.0)
+		levels[str(light["colour"])] = clampf(float(cardioMinutes.get(light["id"], 0.0)) / wanted, 0.0, 1.0)
+	return levels
+
+
+func _applyOverlays(animate: bool) -> void:
+	### WHAT THIS DOES
+	# the chips (shown only when they have something to show), the body's heat and vessels, the card
+	# title and hint, and the balance tab - everything the two overlays change
+
+	targetsChip.visible = regionTargets.size() > 0
+	targetsChip.set_pressed_no_signal(targetsOn())
+	cardioChip.visible = cardioLogged
+	cardioChip.set_pressed_no_signal(cardioOn())
+	if replaying():
+		return
+	bodyCard.setTitle(cardTitle())
+	bodyCard.setHint(cardHintText())
+	bodyCard.setHeat(displayHeat(shownHeat), animate)
+	if cardioOn():
+		bodyCard.setVessels(cardioLevels())
+	else:
+		bodyCard.setVessels({})
+	_fillBalance()
+
+
+func cardHintText() -> String:
+	# the plain hint, or what the overlays say: how many muscles are on target, the cardio minutes
+	var lines: Array = []
+	if targetsOn():
+		var met: int = HeatEngine.onTarget(shownHeat, regionTargets).size()
+		var counted: int = 0
+		for regionId in regionTargets:
+			if float(regionTargets[regionId]) > 0.0:
+				counted += 1
+		lines.append("%d/%d muscles on target · tap one for details" % [met, counted])
+	if cardioOn():
+		var parts: Array = []
+		for light in AppData.cardioLights:
+			parts.append("%s %d/%d min" % [str(light["name"]).get_slice(" ", 0), int(roundf(float(cardioMinutes.get(light["id"], 0.0)))), int(cardioTargets.get(light["id"], 0))])
+		lines.append(" · ".join(parts))
+	if lines.is_empty():
+		return cardHint
+	return "\n".join(lines)
+
+
+func _bandOf(regionId: String) -> Array:
+	# a muscle's band: with targets on, its target up to targetOverShare x it; otherwise the usual one
+	if targetsOn() and float(regionTargets.get(regionId, 0.0)) > 0.0:
+		var wanted: float = float(regionTargets[regionId])
+		return [wanted, wanted * targetOverShare]
+	return AppData.regionBand(regionId)
 
 
 ### /// PERIOD ///
@@ -317,17 +453,122 @@ func _fillBalance() -> void:
 	# rest over the next frames (_process)
 
 	if balanceNote == null:
-		balanceNote = Ui.label("", "FaintLabel")
-		balanceNote.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		balanceBox.add_child(balanceNote)
-	balanceRanks = HeatEngine.rankRegions(shownHeat, AppData.regions)
+		_buildBalanceTop()
+	_fillTargetsLine()
+	_fillCardioPanel()
+	var regions: Array = AppData.regions
+	if targetsOn():
+		regions = []
+		for region in AppData.regions:
+			if float(regionTargets.get(region["id"], 0.0)) > 0.0:
+				regions.append({"id": region["id"], "name": region["name"], "band": _bandOf(region["id"])})
+	balanceRanks = HeatEngine.rankRegions(shownHeat, regions)
 	if period == "day":
 		balanceRanks = _todayRanks(balanceRanks)
 	balanceNote.text = _balanceNoteText()
 	_placeBalanceRows(firstBalanceRows)
 
 
+func _buildBalanceTop() -> void:
+	### WHAT THIS DOES
+	# the three lines over the balance rows: the targets line, the cardio panel and the note
+
+	targetsLine = Ui.hbox(8)
+	balanceBox.add_child(targetsLine)
+	targetsText = Ui.wrapLabel("", "MutedLabel")
+	targetsText.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	targetsText.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	targetsLine.add_child(targetsText)
+	var change: Button = Ui.button("Targets", "ChipButton", openTargets)
+	change.custom_minimum_size.y = Segmented.chipHeight
+	change.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	targetsLine.add_child(change)
+	targetsLine.set_meta("button", change)
+
+	cardioPanel = PanelContainer.new()
+	cardioPanel.theme_type_variation = "CardPanel"
+	balanceBox.add_child(cardioPanel)
+	cardioBox = Ui.vbox(6)
+	cardioPanel.add_child(cardioBox)
+
+	balanceNote = Ui.label("", "FaintLabel")
+	balanceNote.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	balanceBox.add_child(balanceNote)
+
+
+func _fillTargetsLine() -> void:
+	var names: Array = []
+	for preset in Targets.activePresets():
+		names.append(str(preset["name"]))
+	if names.is_empty():
+		targetsText.text = "Training for a sport or a look? Target presets set a goal per muscle."
+		targetsLine.get_meta("button").text = "Pick one"
+	else:
+		targetsText.text = "Targets: %s" % ", ".join(names)
+		targetsLine.get_meta("button").text = "Change"
+
+
+func _fillCardioPanel() -> void:
+	### WHAT THIS DOES
+	# with the cardio overlay on: each light's minutes against its weekly target as a coloured bar,
+	# then the health line (easy + 2 x hard against the WHO 150, extra benefit at 300) and the note
+
+	cardioPanel.visible = cardioOn()
+	if not cardioOn():
+		return
+	Ui.clearChildren(cardioBox)
+	var when: String = "this week"
+	if averaged():
+		when = "a week, averaged"
+	elif period == "day":
+		when = "today, of the weekly target"
+	cardioBox.add_child(Ui.label("Cardio %s" % when, "BoldLabel"))
+	for light in AppData.cardioLights:
+		var minutes: float = float(cardioMinutes.get(light["id"], 0.0))
+		var wanted: float = float(cardioTargets.get(light["id"], 0.0))
+		var top: HBoxContainer = Ui.hbox(8)
+		cardioBox.add_child(top)
+		var nameLabel: Label = Ui.label(str(light["name"]), "MutedLabel")
+		nameLabel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		top.add_child(nameLabel)
+		top.add_child(Ui.label("%d / %d min" % [int(roundf(minutes)), int(wanted)], "BoldLabel"))
+		cardioBox.add_child(_cardioBar(minutes / maxf(wanted, 1.0), _lightColour(str(light["colour"]))))
+	var health: float = HeatEngine.healthMinutes(cardioMinutes)
+	var verdict: String = "below the WHO minimum of %d" % int(HeatEngine.healthMinimum)
+	if health >= HeatEngine.healthExtra:
+		verdict = "past %d - the extra-benefit end" % int(HeatEngine.healthExtra)
+	elif health >= HeatEngine.healthMinimum:
+		verdict = "meets the WHO minimum of %d" % int(HeatEngine.healthMinimum)
+	cardioBox.add_child(Ui.wrapLabel("Health minutes (easy + 2 × hard): %d · %s" % [int(roundf(health)), verdict], "MutedLabel"))
+	cardioBox.add_child(Ui.wrapLabel(cardioNote, "FaintLabel"))
+
+
+func _lightColour(colourName: String) -> Color:
+	if colourName == "red":
+		return VesselLayer.redColour
+	return VesselLayer.blueColour
+
+
+func _cardioBar(share: float, fill: Color) -> ProgressBar:
+	var bar := ProgressBar.new()
+	bar.show_percentage = false
+	bar.custom_minimum_size.y = cardioBarHeight
+	bar.max_value = 1.0
+	bar.value = clampf(share, 0.0, 1.0)
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.add_theme_stylebox_override("fill", AppTheme.box("balance", fill))
+	return bar
+
+
+func openTargets() -> AppScreen:
+	return app.openTargets()
+
+
 func _balanceNoteText() -> String:
+	if targetsOn() and period == "day":
+		return "Effective sets today, as part of each muscle's weekly target"
+	if targetsOn():
+		return "Muscles with a target, furthest from it first (over = more than %d× the target)" % int(targetOverShare)
 	if period == "day" and balanceRanks.is_empty():
 		return "Nothing trained today yet - the muscles you work show up here, as part of their weekly target."
 	if period == "day":
@@ -353,10 +594,10 @@ func _placeBalanceRows(newRowLimit: int) -> void:
 	# stops at the first row it may not make yet and leaves the rest for the next frame
 
 	var made: int = 0
-	var place: int = 1
+	var place: int = balanceNote.get_index() + 1
 	var listed: Dictionary = {}
 
-	# rows of muscles this list leaves out (the day view) are hidden, the rest shown
+	# rows of muscles this list leaves out (the day view, muscles without a target) are hidden
 	balancePending = false
 	for rank in balanceRanks:
 		listed[str(rank["region"])] = true
@@ -406,8 +647,12 @@ func _updateBalanceRow(parts: Dictionary, rank: Dictionary) -> void:
 	if period == "day":
 		var percent: int = int(roundf(100.0 * float(rank["sets"]) / maxf(float(band[0]), 0.001)))
 		Ui.retag(parts["status"], "%d%% of week" % percent, Ui.colour("accent"))
+	elif targetsOn() and rank["status"] == HeatEngine.statusOk:
+		Ui.retag(parts["status"], "on target", Ui.statusColour(rank["status"]))
 	else:
 		Ui.retag(parts["status"], Ui.statusText(rank["status"]), Ui.statusColour(rank["status"]))
+	if targetsOn():
+		parts["amount"].text = "%s / %s" % [Ui.formatSets(rank["sets"]), Ui.formatSets(float(band[0]))]
 	parts["bar"].setValues(float(rank["sets"]), band, str(rank["status"]))
 
 
@@ -566,7 +811,7 @@ func _monthRow(bucket: Dictionary) -> PanelContainer:
 	var workoutWord: String = "workouts"
 	if count == 1:
 		workoutWord = "workout"
-	texts.add_child(Ui.label("%d %s · %d sets · %s a week" % [count, workoutWord, Ui.setCount(entries), Ui.formatSets(float(count) / float(bucket["weeks"]))], "MutedLabel"))
+	texts.add_child(Ui.label("%d %s · %s · %s a week" % [count, workoutWord, Ui.workSummary(entries), Ui.formatSets(float(count) / float(bucket["weeks"]))], "MutedLabel"))
 	var top: Array = heat.keys()
 	top.sort_custom(func(a: String, b: String) -> bool: return float(heat[a]) > float(heat[b]))
 	var names: Array = []
@@ -610,7 +855,7 @@ func _workoutRow(workout: Dictionary) -> TapRow:
 	var exerciseWord: String = "exercises"
 	if entries.size() == 1:
 		exerciseWord = "exercise"
-	texts.add_child(Ui.label("%s · %d sets · %d %s" % [Ui.formatLength(length), Ui.setCount(entries), entries.size(), exerciseWord], "MutedLabel"))
+	texts.add_child(Ui.label("%s · %s · %d %s" % [Ui.formatLength(length), Ui.workSummary(entries), entries.size(), exerciseWord], "MutedLabel"))
 	var names: Array = []
 	for entry in entries:
 		names.append(str(AppData.getExercise(entry["exerciseId"]).get("name", entry["exerciseId"])))
@@ -701,13 +946,14 @@ func openRegion(regionId: String) -> BottomSheet:
 	# much, Find exercises
 
 	var sets: float = float(shownHeat.get(regionId, 0.0))
-	var band: Array = AppData.regionBand(regionId)
+	var band: Array = _bandOf(regionId)
+	var withTarget: bool = targetsOn() and float(regionTargets.get(regionId, 0.0)) > 0.0
 	var status: String = HeatEngine.targetStatus(sets, band)
 	var region: Dictionary = AppData.getRegion(regionId)
 	var sheet := BottomSheet.new()
 	var viewWords: Array = region.get("views", [])
 
-	bodyCard.bodyView.selectedRegion = regionId
+	bodyCard.bodyView.selectedRegions = [regionId]
 	var when: String = str(periodWords[period])
 	if averaged():
 		when = "per week, averaged %s" % when
@@ -718,13 +964,18 @@ func openRegion(regionId: String) -> BottomSheet:
 	sheet.body.add_child(tiles)
 	var setsWords: Dictionary = {"day": "sets today", "week": "sets this week", "month": "sets a week", "year": "sets a week"}
 	tiles.add_child(_statTile(Ui.formatSets(sets), setsWords[period], null))
-	tiles.add_child(_statTile("%d–%d" % [int(band[0]), int(band[1])], "weekly target", null))
+	if withTarget:
+		tiles.add_child(_statTile(Ui.formatSets(float(band[0])), "your target", null))
+	else:
+		tiles.add_child(_statTile("%d–%d" % [int(band[0]), int(band[1])], "weekly target", null))
 	if period == "day":
 		var percent: int = int(roundf(100.0 * sets / maxf(float(band[0]), 0.001)))
 		tiles.add_child(_statTile("%d%%" % percent, "of the week's low end", null))
 	else:
 		var offText: String = "on target"
-		if sets < float(band[0]):
+		if withTarget and sets >= float(band[0]):
+			offText = "target met"
+		elif sets < float(band[0]):
 			offText = "%s short" % Ui.formatSets(float(band[0]) - sets)
 		elif sets > float(band[1]):
 			offText = "%s over" % Ui.formatSets(sets - float(band[1]))
@@ -803,7 +1054,7 @@ func _onRegionChoice(actionId: String, regionId: String) -> void:
 func _onRegionSheetClosed() -> void:
 	regionSheet = null
 	if bodyCard != null:
-		bodyCard.bodyView.selectedRegion = ""
+		bodyCard.bodyView.selectedRegions = []
 
 
 ### /// START / RESUME ///
@@ -933,6 +1184,7 @@ func startReplay(exactSeconds: float = 0.0) -> void:
 	replayHeat = {}
 	bodyCard.bodyView.transitionSeconds = replayBlendSeconds
 	bodyCard.setHeat({}, false)
+	bodyCard.setVessels({})
 	bodyCard.setTitle(pageTitles[period])
 	bodyCard.setHint("Tap the body to skip")
 
@@ -946,9 +1198,9 @@ func replayLength() -> float:
 
 func _replayGroups() -> Array:
 	### WHAT THIS DOES
-	# [{caption, heat}] oldest first, heat already divided like the shown period (so the replay ends on
-	# exactly what the body shows): a workout each for day and week, a rolling week each for month,
-	# a calendar month each for year
+	# [{caption, heat}] oldest first, heat already divided like the shown period and turned into what
+	# the body draws (displayHeat - so the replay ends on exactly what the body shows): a workout each
+	# for day and week, a rolling week each for month, a calendar month each for year
 
 	var groups: Array = []
 	var scale: float = 1.0 / weeksCovered
@@ -959,7 +1211,7 @@ func _replayGroups() -> Array:
 		months.reverse()
 		for bucket in months:
 			var heat: Dictionary = HeatEngine.effectiveSets(HeatEngine.weekEntries(bucket["workouts"]), AppData.exerciseById)
-			groups.append({"caption": bucket["label"], "heat": HeatEngine.scaleHeat(heat, scale)})
+			groups.append({"caption": bucket["label"], "heat": displayHeat(HeatEngine.scaleHeat(heat, scale))})
 		return groups
 	if period == "month":
 		var weekCount: int = int(ceilf(float(HeatEngine.periodDays["month"]) / 7.0))
@@ -974,14 +1226,14 @@ func _replayGroups() -> Array:
 			if inside.is_empty():
 				continue
 			var heat: Dictionary = HeatEngine.effectiveSets(HeatEngine.weekEntries(inside), AppData.exerciseById)
-			groups.append({"caption": "Week of %s" % Ui.dayLabel(oldest + HeatEngine.daySeconds), "heat": HeatEngine.scaleHeat(heat, scale)})
+			groups.append({"caption": "Week of %s" % Ui.dayLabel(oldest + HeatEngine.daySeconds), "heat": displayHeat(HeatEngine.scaleHeat(heat, scale))})
 		return groups
 
 	var oldestFirst: Array = shownWorkouts.duplicate()
 	oldestFirst.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["startedAt"]) < float(b["startedAt"]))
 	for workout in oldestFirst:
 		var heat: Dictionary = HeatEngine.effectiveSets(workout["entries"], AppData.exerciseById)
-		groups.append({"caption": Ui.dayLabel(float(workout["startedAt"])), "heat": HeatEngine.scaleHeat(heat, scale)})
+		groups.append({"caption": Ui.dayLabel(float(workout["startedAt"])), "heat": displayHeat(HeatEngine.scaleHeat(heat, scale))})
 	return groups
 
 
@@ -1008,7 +1260,5 @@ func _stepReplay(delta: float) -> void:
 func _endReplay() -> void:
 	# straight to the real week (a skip lands softly; after the last step it is already there)
 	replaySteps = []
-	bodyCard.setTitle(cardTitle())
-	bodyCard.setHint(cardHint)
-	bodyCard.setHeat(shownHeat, true)
+	_applyOverlays(true)
 	get_tree().create_timer(replayBlendSeconds + 0.1).timeout.connect(_restoreBlend)

@@ -7,6 +7,7 @@ extends AppScreen
 ##   sideways strip of every palette)
 ## - heat map: setGradient(id), setHideUntouched(on)
 ## - workouts: setNewExerciseSets(0 / 1), setDefaultView("front"/"back"/"both")
+## - targets: which presets are on, openTargets() -> the Targets screen
 ## - backup: exportBackup(copyToClipboard) -> {text, path} (clipboard + user://backups),
 ##   importFromClipboard() / askImport(text) -> confirm sheet -> importNow(text) -> {ok, error}
 ##   (the current data is saved as a backup file first)
@@ -106,6 +107,17 @@ func _fill() -> void:
 	workoutBox.add_child(Ui.label("Body view when the app opens", "MutedLabel"))
 	viewChoice = _choice(workoutBox, [["front", "Front"], ["back", "Back"], ["both", "Both"]], str(Storage.settings["defaultView"]), setDefaultView)
 
+	# targets
+	var targetsBox: VBoxContainer = _section("Targets")
+	var activeNames: Array = []
+	for preset in Targets.activePresets():
+		activeNames.append(str(preset["name"]))
+	var targetsLine: String = "None on. Presets for sports and looks set a weekly goal per muscle (and for cardio), researched from the sources in the credits."
+	if activeNames.size() > 0:
+		targetsLine = "On: %s" % ", ".join(activeNames)
+	targetsBox.add_child(Ui.wrapLabel(targetsLine, "FaintLabel"))
+	targetsBox.add_child(Ui.button("Choose target presets", "Button", openTargets))
+
 	# backup
 	var backupBox: VBoxContainer = _section("Backup")
 	backupBox.add_child(Ui.wrapLabel("Export copies everything (profile, workouts, templates, favourites) to the clipboard as text and also saves it in the app's backups folder. Paste it somewhere safe. Import reads a backup from the clipboard and replaces what is here.", "FaintLabel"))
@@ -167,6 +179,10 @@ func setTheme(themeId: String) -> void:
 
 func redoSetup() -> ProfileSetup:
 	return app.openProfileSetup(false)
+
+
+func openTargets() -> TargetsScreen:
+	return app.openTargets()
 
 
 ### /// HEAT MAP ///

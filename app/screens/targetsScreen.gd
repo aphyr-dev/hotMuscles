@@ -1,0 +1,216 @@
+class_name TargetsScreen
+extends AppScreen
+## TargetsScreen - the target presets: switch any mix on, see the combined targets on a body, make your own
+## what this offers
+## - sections Sports, Physique, Yours; tap a row = toggle(presetId) (on rows get a tick and an outline)
+## - hold a row (or its "..." button) = openMenu(presetId): copy any preset into your own; edit and
+##   delete your own (deletePreset(presetId), undo on the toast)
+## - "+ New target" / copyPreset(presetId) / editPreset(presetId) open the TargetEditor
+## - the preview body: the combined target per muscle (the highest of the presets that are on), the
+##   hottest muscle = the biggest target; the line under it gives the weekly cardio target
+## - rows (presetId -> TapRow) for checks
+
+### /// TUNING ///
+
+# the preview body's tallest height
+const bodyMaxHeight: float = 300.0
+# key exercises named on a researched preset's row
+const keyNamesShown: int = 4
+const sectionTitles: Dictionary = {"sport": "Sports", "physique": "Physique", "custom": "Yours"}
+
+### /// STATE ///
+
+var scroll: KineticScroll = null
+var column: VBoxContainer = null
+var bodyCard: BodyCard = null
+var listBox: VBoxContainer = null
+var rows: Dictionary = {}
+
+
+func _ready() -> void:
+	_build()
+	Storage.changed.connect(_onStorageChanged)
+	refresh()
+
+
+func _build() -> void:
+	var frame: Dictionary = buildFrame("Targets", "Back")
+	scroll = makeScroll(frame["content"])
+	column = scroll.get_meta("column")
+
+	column.add_child(Ui.wrapLabel("Switch on any mix. A muscle's weekly target is your baseline (the home slider, %d sets now) plus the preset's offset; with several on, the highest wins. Turn on Targets under the home body to see how close you are." % int(Targets.baseline()), "MutedLabel"))
+	bodyCard = BodyCard.new()
+	column.add_child(bodyCard)
+	bodyCard.configure("Your targets", bodyMaxHeight, "", false, "")
+	listBox = Ui.vbox(10)
+	column.add_child(listBox)
+
+	var newButton: Button = Ui.button("+  New target", "AccentButton", newTarget)
+	newButton.custom_minimum_size.y = 56.0
+	frame["bottom"].add_child(newButton)
+
+
+func rebuild() -> void:
+	refresh()
+
+
+func onShown() -> void:
+	refresh()
+
+
+func _onStorageChanged(section: String) -> void:
+	# deferred: the change usually comes from a row's own tap, and refresh remakes the rows
+	if (section == "settings" or section == "all") and is_inside_tree():
+		call_deferred("refresh")
+
+
+### /// FILLING ///
+
+func refresh() -> void:
+	### WHAT THIS DOES
+	# the preview body and its line, then every preset row by section
+
+	var targets: Dictionary = Targets.regionTargets()
+	var biggest: float = 1.0
+
+	for regionId in targets:
+		biggest = maxf(biggest, float(targets[regionId]))
+	bodyCard.bodyView.rangeMax = biggest
+	bodyCard.setHeat(targets, true)
+	if targets.is_empty():
+		bodyCard.setTitle("Your targets")
+		bodyCard.setHint("Nothing switched on - tap a preset below")
+	else:
+		var cardio: Dictionary = Targets.cardioTargets()
+		var names: Array = []
+		for preset in Targets.activePresets():
+			names.append(str(preset["name"]))
+		bodyCard.setTitle(", ".join(names))
+		bodyCard.setHint("Hottest = biggest target (%s sets a week) · cardio %d easy + %d hard min a week" % [Ui.formatSets(biggest), int(cardio.get("easyCardio", 0)), int(cardio.get("hardCardio", 0))])
+
+	Ui.clearChildren(listBox)
+	rows = {}
+	for kind in ["sport", "physique", "custom"]:
+		var presets: Array = []
+		for preset in Targets.allPresets():
+			if preset["kind"] == kind:
+				presets.append(preset)
+		listBox.add_child(Ui.label(sectionTitles[kind], "TitleLabel"))
+		if presets.is_empty():
+			listBox.add_child(Ui.wrapLabel("None yet. Make one with + New target, or hold a preset above to copy it.", "FaintLabel"))
+		for preset in presets:
+			var row: TapRow = _presetRow(preset)
+			listBox.add_child(row)
+			rows[preset["id"]] = row
+
+
+func _presetRow(preset: Dictionary) -> TapRow:
+	### WHAT THIS DOES
+	# tick, name, the one-line summary, and on researched presets the first key exercises
+
+	var presetId: String = preset["id"]
+	var active: bool = Targets.isActive(presetId)
+	var row := TapRow.new()
+	var line: HBoxContainer = Ui.hbox(12)
+	row.setContent(line)
+
+	var tick := AppIcon.new()
+	tick.iconSize = 26.0
+	tick.custom_minimum_size = Vector2(26.0, 26.0)
+	tick.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	tick.kind = "circle"
+	tick.colourKey = "textFaint"
+	if active:
+		tick.kind = "circleCheck"
+		tick.colourKey = "accent"
+	line.add_child(tick)
+
+	var texts: VBoxContainer = Ui.vbox(3)
+	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.add_child(texts)
+	texts.add_child(Ui.wrapLabel(str(preset["name"]), "BoldLabel"))
+	if str(preset["summary"]) != "":
+		texts.add_child(Ui.wrapLabel(str(preset["summary"]), "MutedLabel"))
+	else:
+		texts.add_child(Ui.wrapLabel(_offsetSummary(preset), "MutedLabel"))
+	var keys: Array = []
+	for exerciseId in preset["keyExercises"]:
+		if keys.size() >= keyNamesShown:
+			break
+		keys.append(str(AppData.getExercise(exerciseId).get("name", exerciseId)))
+	if keys.size() > 0:
+		texts.add_child(Ui.wrapLabel("Key: %s" % ", ".join(keys), "FaintLabel"))
+
+	var more: Button = Ui.iconButton("more", "FlatButton", "textMuted")
+	more.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	more.pressed.connect(openMenu.bind(presetId))
+	line.add_child(more)
+
+	row.selected = active
+	row.tapped.connect(toggle.bind(presetId))
+	row.longPressed.connect(openMenu.bind(presetId))
+	return row
+
+
+func _offsetSummary(preset: Dictionary) -> String:
+	# a custom target's biggest pushes, e.g. "+6 glutes, +4 lats, -4 biceps"
+	var offsets: Dictionary = preset["offsets"]
+	var ids: Array = []
+	for regionId in offsets:
+		if int(offsets[regionId]) != 0:
+			ids.append(regionId)
+	ids.sort_custom(func(a: String, b: String) -> bool: return absi(int(offsets[a])) > absi(int(offsets[b])))
+	var parts: Array = []
+	for regionId in ids.slice(0, 3):
+		parts.append("%+d %s" % [int(offsets[regionId]), AppData.regionName(regionId).to_lower()])
+	if parts.is_empty():
+		return "Your baseline on every muscle"
+	return ", ".join(parts)
+
+
+### /// ACTIONS ///
+
+func toggle(presetId: String) -> void:
+	Targets.toggle(presetId)
+
+
+func openMenu(presetId: String) -> BottomSheet:
+	var preset: Dictionary = Targets.getPreset(presetId)
+	var actions: Array = [["copy", "Copy into my own", "Button"]]
+	if Targets.isCustom(presetId):
+		actions = [["edit", "Edit", "Button"], ["copy", "Copy", "Button"], ["delete", "Delete", "Button"]]
+	return app.confirm(str(preset.get("name", presetId)), str(preset.get("summary", "")), actions, _onMenu.bind(presetId))
+
+
+func _onMenu(actionId: String, presetId: String) -> void:
+	if actionId == "edit":
+		editPreset(presetId)
+	elif actionId == "copy":
+		copyPreset(presetId)
+	elif actionId == "delete":
+		deletePreset(presetId)
+
+
+func newTarget() -> TargetEditor:
+	var offsets: Dictionary = {}
+	for regionId in AppData.regionIds:
+		offsets[regionId] = 0
+	return app.openTargetEditor({"id": "", "name": Targets.newTargetName, "offsets": offsets, "cardio": AppData.cardioDefaultTarget.duplicate()})
+
+
+func copyPreset(presetId: String) -> TargetEditor:
+	var preset: Dictionary = Targets.getPreset(presetId)
+	return app.openTargetEditor({"id": "", "name": "%s (mine)" % str(preset["name"]), "offsets": preset["offsets"].duplicate(), "cardio": preset["cardio"].duplicate()})
+
+
+func editPreset(presetId: String) -> TargetEditor:
+	var preset: Dictionary = Targets.getPreset(presetId)
+	return app.openTargetEditor({"id": presetId, "name": preset["name"], "offsets": preset["offsets"].duplicate(), "cardio": preset["cardio"].duplicate()})
+
+
+func deletePreset(presetId: String) -> void:
+	var wasActive: bool = Targets.isActive(presetId)
+	var removed: Dictionary = Targets.deleteCustom(presetId)
+	if removed.is_empty():
+		return
+	app.showToast("Deleted \"%s\"" % str(removed["name"]), "Undo", func() -> void: Targets.restoreCustom(removed, wasActive))

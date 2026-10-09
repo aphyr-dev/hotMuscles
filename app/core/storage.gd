@@ -6,15 +6,20 @@ extends Node
 ## - settings      {hideUntouched, newExerciseSets 0/1,
 ##                  defaultView "front"/"back"/"both", rangeWeek, rangeWorkout,
 ##                  workoutShowWeek (the workout body adds the last 7 days),
-##                  homePeriod "day"/"week"/"month"/"year" (what the home page shows)}
+##                  homePeriod "day"/"week"/"month"/"year" (what the home page shows),
+##                  activeTargets [preset ids that are on], customTargets [{id, name, offsets
+##                  {regionId: sets}, cardio {lightId: minutes}}] (the user's own presets),
+##                  overlayTargets / overlayCardio (the home body's one-tap overlays)}
 ## - workouts      {submitted: [workout], current: workout or null}
-##                  workout = {id, startedAt, endedAt, entries: [{exerciseId, sets, grips}]} (unix seconds)
-## - templates     [{id, name, entries: [{exerciseId, sets, grips}]}]
-## - exercisePrefs exerciseId -> {favourite, hidden, grips, lastUsed}
-## workout in progress: startWorkout, addEntry, setEntrySets, setEntryGrips, removeEntry/insertEntry,
-##   finishWorkout, discardWorkout/resumeWorkout (undo); submitted: updateWorkout, deleteWorkout/
-##   restoreWorkout; templates: saveTemplate, renameTemplate, deleteTemplate/restoreTemplate;
-##   prefs: setFavourite, setHidden, setGripsMemory, getPref, usedExercises
+##                  workout = {id, startedAt, endedAt, entries: [entry]} (unix seconds)
+##                  entry = {exerciseId, sets, grips} + {minutes, effort} on a cardio exercise
+## - templates     [{id, name, entries: [entry]}]
+## - exercisePrefs exerciseId -> {favourite, hidden, grips, lastUsed, effort (last cardio effort, "")}
+## workout in progress: startWorkout, newEntry, addEntry, setEntrySets, setEntryGrips, setEntryMinutes,
+##   setEntryEffort, removeEntry/insertEntry, finishWorkout, discardWorkout/resumeWorkout (undo);
+##   submitted: updateWorkout, deleteWorkout/restoreWorkout; templates: saveTemplate, renameTemplate,
+##   deleteTemplate/restoreTemplate; prefs: setFavourite, setHidden, setGripsMemory, setEffortMemory,
+##   getPref, usedExercises
 ## signal changed(section) after every save ("profile", "settings", "workouts", "templates",
 ## "exercisePrefs", or "all" after an import)
 ## each file is {"version": formatVersion, "data": ...}; a broken file is kept as <name>.bad and
@@ -38,6 +43,12 @@ const backupFolderName: String = "backups"
 # smallest and largest heat range (the 0-N slider)
 const rangeMinValue: int = 1
 const rangeMaxValue: int = 20
+# cardio minutes: what a new cardio entry starts at when new exercises start logged, and the most
+const cardioStartMinutes: int = 20
+const maxMinutes: int = 600
+# a custom target's offsets stay inside the researched presets' range
+const offsetMin: int = -12
+const offsetMax: int = 10
 
 const sectionNames: Array = ["profile", "settings", "workouts", "templates", "exercisePrefs"]
 
@@ -73,6 +84,10 @@ func defaultSettings() -> Dictionary:
 		"rangeWorkout": 5,
 		"workoutShowWeek": false,
 		"homePeriod": "week",
+		"activeTargets": [],
+		"customTargets": [],
+		"overlayTargets": false,
+		"overlayCardio": false,
 	}
 
 
@@ -81,7 +96,7 @@ func defaultWorkouts() -> Dictionary:
 
 
 func defaultPref() -> Dictionary:
-	return {"favourite": false, "hidden": false, "grips": false, "lastUsed": 0.0}
+	return {"favourite": false, "hidden": false, "grips": false, "lastUsed": 0.0, "effort": ""}
 
 
 ### /// LOAD AND SAVE ///
@@ -229,6 +244,51 @@ func _cleanSettings() -> void:
 	settings["homePeriod"] = str(settings["homePeriod"])
 	if not HeatEngine.periodIds.has(settings["homePeriod"]):
 		settings["homePeriod"] = "week"
+	settings["overlayTargets"] = bool(settings["overlayTargets"])
+	settings["overlayCardio"] = bool(settings["overlayCardio"])
+	settings["customTargets"] = _cleanCustomTargets(settings["customTargets"])
+	settings["activeTargets"] = _cleanActiveTargets(settings["activeTargets"])
+
+
+func _cleanCustomTargets(list: Variant) -> Array:
+	### WHAT THIS DOES
+	# the user's own presets: whole-number offsets inside the preset range, minutes never below 0
+
+	var clean: Array = []
+
+	if typeof(list) != TYPE_ARRAY:
+		return clean
+	for target in list:
+		if typeof(target) != TYPE_DICTIONARY:
+			continue
+		var offsets: Dictionary = {}
+		var cardio: Dictionary = {}
+		var rawOffsets: Variant = target.get("offsets", {})
+		var rawCardio: Variant = target.get("cardio", {})
+		if typeof(rawOffsets) == TYPE_DICTIONARY:
+			for regionId in rawOffsets:
+				offsets[str(regionId)] = clampi(int(rawOffsets[regionId]), offsetMin, offsetMax)
+		if typeof(rawCardio) == TYPE_DICTIONARY:
+			for lightId in rawCardio:
+				cardio[str(lightId)] = clampi(int(rawCardio[lightId]), 0, maxMinutes * 7)
+		clean.append({
+			"id": str(target.get("id", _newId("c"))),
+			"name": str(target.get("name", "My target")),
+			"offsets": offsets,
+			"cardio": cardio,
+		})
+	return clean
+
+
+func _cleanActiveTargets(list: Variant) -> Array:
+	# preset ids as text, each once (ids that no longer exist are dropped by Targets)
+	var clean: Array = []
+	if typeof(list) != TYPE_ARRAY:
+		return clean
+	for presetId in list:
+		if not clean.has(str(presetId)):
+			clean.append(str(presetId))
+	return clean
 
 
 func _cleanWorkout(workout: Dictionary) -> Dictionary:
@@ -247,11 +307,20 @@ func _cleanEntries(entries: Variant) -> Array:
 	for entry in entries:
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
-		clean.append({
-			"exerciseId": str(entry.get("exerciseId", "")),
-			"sets": maxi(int(entry.get("sets", 0)), 0),
-			"grips": bool(entry.get("grips", false)),
-		})
+		clean.append(_cleanEntry(entry))
+	return clean
+
+
+func _cleanEntry(entry: Dictionary) -> Dictionary:
+	# the three fields every entry has, plus minutes and effort when it is a cardio entry
+	var clean: Dictionary = {
+		"exerciseId": str(entry.get("exerciseId", "")),
+		"sets": maxi(int(entry.get("sets", 0)), 0),
+		"grips": bool(entry.get("grips", false)),
+	}
+	if entry.has("minutes") or entry.has("effort"):
+		clean["minutes"] = clampi(int(entry.get("minutes", 0)), 0, maxMinutes)
+		clean["effort"] = str(entry.get("effort", ""))
 	return clean
 
 
@@ -311,34 +380,56 @@ func _newCurrentWorkout(nowUnix: float) -> void:
 	workouts["current"] = {"id": _newId("w"), "startedAt": started, "endedAt": 0.0, "entries": []}
 
 
+func newEntry(exerciseId: String) -> Dictionary:
+	### WHAT THIS DOES
+	# a fresh entry as the settings say: the "new exercises start at" sets (or, for cardio, 0 or
+	# cardioStartMinutes minutes), the grips this exercise used last time, and for cardio the effort
+	# picked last time (else the exercise's own default effort)
+
+	var exercise: Dictionary = AppData.getExercise(exerciseId)
+	var pref: Dictionary = getPref(exerciseId)
+	var startLogged: bool = int(settings["newExerciseSets"]) > 0
+	var entry: Dictionary = {"exerciseId": exerciseId, "sets": int(settings["newExerciseSets"]), "grips": bool(pref["grips"])}
+
+	if str(exercise.get("category", "")) != "cardio":
+		return entry
+	entry["sets"] = 0
+	entry["minutes"] = 0
+	if startLogged:
+		entry["minutes"] = cardioStartMinutes
+	entry["effort"] = str(pref["effort"])
+	if entry["effort"] == "":
+		entry["effort"] = str(exercise.get("cardioEffort", "easy"))
+	return entry
+
+
 func addEntry(exerciseId: String, sets: int = -1, grips: Variant = null) -> int:
 	### WHAT THIS DOES
-	# adds an exercise to the running workout; sets -1 = the "new exercises start at" setting,
-	# grips null = what this exercise used last time; returns the entry index
+	# adds an exercise to the running workout (newEntry); sets -1 = the "new exercises start at"
+	# setting, grips null = what this exercise used last time; returns the entry index
 
 	if not hasCurrentWorkout():
 		startWorkout()
-	var useSets: int = sets
-	if useSets < 0:
-		useSets = int(settings["newExerciseSets"])
-	var useGrips: bool = bool(getPref(exerciseId)["grips"])
+	var entry: Dictionary = newEntry(exerciseId)
+	if sets >= 0:
+		entry["sets"] = sets
 	if grips != null:
-		useGrips = bool(grips)
+		entry["grips"] = bool(grips)
 	var entries: Array = workouts["current"]["entries"]
-	entries.append({"exerciseId": exerciseId, "sets": maxi(useSets, 0), "grips": useGrips})
+	entries.append(_cleanEntry(entry))
 	save("workouts")
 	return entries.size() - 1
 
 
 func addEntries(list: Array) -> void:
 	### WHAT THIS DOES
-	# several entries ({exerciseId, sets, grips}) in one write, starting a workout if none runs
+	# several entries in one write, starting a workout if none runs
 
 	if not hasCurrentWorkout():
 		_newCurrentWorkout(-1.0)
 	var entries: Array = workouts["current"]["entries"]
 	for entry in list:
-		entries.append({"exerciseId": str(entry["exerciseId"]), "sets": maxi(int(entry["sets"]), 0), "grips": bool(entry["grips"])})
+		entries.append(_cleanEntry(entry))
 	save("workouts")
 
 
@@ -357,6 +448,25 @@ func setEntryGrips(index: int, grips: bool) -> void:
 		return
 	entries[index]["grips"] = grips
 	_setPrefValue(entries[index]["exerciseId"], "grips", grips)
+	save("exercisePrefs")
+	save("workouts")
+
+
+func setEntryMinutes(index: int, minutes: int) -> void:
+	var entries: Array = currentWorkout().get("entries", [])
+	if index < 0 or index >= entries.size():
+		return
+	entries[index]["minutes"] = clampi(minutes, 0, maxMinutes)
+	save("workouts")
+
+
+func setEntryEffort(index: int, effort: String) -> void:
+	# also remembered per exercise for next time
+	var entries: Array = currentWorkout().get("entries", [])
+	if index < 0 or index >= entries.size():
+		return
+	entries[index]["effort"] = effort
+	_setPrefValue(entries[index]["exerciseId"], "effort", effort)
 	save("exercisePrefs")
 	save("workouts")
 
@@ -383,7 +493,7 @@ func insertEntry(index: int, entry: Dictionary) -> void:
 
 func finishWorkout(nowUnix: float = -1.0) -> Dictionary:
 	### WHAT THIS DOES
-	# moves the running workout into the week; planned entries (0 sets) are dropped;
+	# moves the running workout into the week; planned entries (0 sets, 0 minutes) are dropped;
 	# marks every exercise as used; returns the submitted workout
 
 	if not hasCurrentWorkout():
@@ -394,7 +504,7 @@ func finishWorkout(nowUnix: float = -1.0) -> Dictionary:
 	var workout: Dictionary = workouts["current"]
 	var kept: Array = []
 	for entry in workout["entries"]:
-		if int(entry["sets"]) > 0:
+		if HeatEngine.isLogged(entry):
 			kept.append(entry)
 			_setPrefValue(entry["exerciseId"], "lastUsed", ended)
 	workout["entries"] = kept
@@ -538,6 +648,12 @@ func setHidden(exerciseId: String, hidden: bool) -> void:
 func setGripsMemory(exerciseId: String, grips: bool) -> void:
 	# remembers the grips choice for next time without a running workout (the past-workout editor)
 	_setPrefValue(exerciseId, "grips", grips)
+	save("exercisePrefs")
+
+
+func setEffortMemory(exerciseId: String, effort: String) -> void:
+	# the cardio effort for next time, without a running workout (the past-workout editor)
+	_setPrefValue(exerciseId, "effort", effort)
 	save("exercisePrefs")
 
 

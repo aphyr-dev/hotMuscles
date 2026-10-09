@@ -6,16 +6,22 @@ extends AppScreen
 ## - PickerScreen.create(target, regionId)   target = the WorkoutScreen to add to, or null (from the
 ##   week: adds to the running workout, or starts one - the button then reads "Start workout with N")
 ## - exercises tab: setSearch(text), toggleEquipment(name), setEquipment(names), setShowHidden(on),
-##   setRegionFilter(regionId) / clearRegionFilter(), toggleExercise(exerciseId), addSelected()
-## - "Filter by unused" chip: setUnusedFirst(on) puts exercises for the muscles still at 0 sets (last 7
-##   days + this workout) first, most share on them first; nothing is dropped. It and a tapped muscle
-##   both decide the order, so turning one on clears the other
+##   toggleExercise(exerciseId), addSelected()
+## - muscles: tap one = setRegionFilter(regionId) (just that one); hold one = addRegionFilter(regionId)
+##   starts picking several - after that a tap or a hold adds or drops a muscle (toggleRegionFilter);
+##   the "for: A, B ×" chip clears them (clearRegionFilter); regionFilters holds the picked ids
+## - order chips, setOrder(mode): "unused" (Filter by unused) puts exercises for the muscles still at 0
+##   sets (last 7 days + this workout) first; "target" (Below target, shown while a target preset is
+##   on) puts exercises for the muscles furthest below their target first; "" = neither. Nothing is
+##   dropped. The order chips and the picked muscles all decide the order, so turning one on clears
+##   the others. orderMode, orderShares (exerciseId -> share on those muscles)
 ##   results (exercise dicts in list order), selected (ticked ids), ghost() (the preview heat)
 ## - star / hide: setFavourite(id, on), setHidden(id, on) (undo toast), openExerciseMenu(id)
 ##   (long-press), swipe right = star, swipe left = hide
 ## - templates tab: showTab("templates"), previewTemplate(id), applyTemplate(id),
 ##   renameTemplate(id) (asks), deleteTemplate(id) (undo toast)
-## - "rough data" tag on non-curated exercises, "in workout" on ones already added
+## - "rough data" tag on non-curated exercises, "in workout" on ones already added, and the name of
+##   every switched-on target preset whose research names the exercise (Targets.tagsFor)
 
 ### /// TUNING ///
 
@@ -38,13 +44,15 @@ const mainButtonHeight: float = 58.0
 ### /// STATE ///
 
 var target: WorkoutScreen = null
-var regionFilter: String = ""
+var regionFilters: Array = []
+var pickingSeveral: bool = false
 var query: String = ""
 var equipment: Array = []
 var showHidden: bool = false
-var unusedFirst: bool = false
-var unusedShares: Dictionary = {}
-var unusedCount: int = 0
+var orderMode: String = ""
+var orderShares: Dictionary = {}
+var orderCount: int = 0
+var presetTags: Dictionary = {}
 var selected: Array = []
 var currentTab: String = "exercises"
 var previewTemplateId: String = ""
@@ -63,6 +71,7 @@ var equipmentChips: Dictionary = {}
 var allChip: Button = null
 var hiddenChip: Button = null
 var unusedChip: Button = null
+var targetChip: Button = null
 var filterRow: HBoxContainer = null
 var filterChip: Button = null
 var countLabel: Label = null
@@ -78,15 +87,16 @@ var searchAt: float = 0.0
 static func create(targetScreen: WorkoutScreen, regionId: String) -> PickerScreen:
 	var made := PickerScreen.new()
 	made.target = targetScreen
-	made.regionFilter = regionId
+	if regionId != "":
+		made.regionFilters = [regionId]
 	return made
 
 
 func _ready() -> void:
 	_build()
 	Storage.changed.connect(_onStorageChanged)
-	if regionFilter != "":
-		setRegionFilter(regionFilter)
+	if regionFilters.size() > 0:
+		setRegionFilter(str(regionFilters[0]))
 	else:
 		refreshList()
 	refreshTemplates()
@@ -111,6 +121,8 @@ func _build() -> void:
 		cardTitle = "Preview"
 	bodyCard.configure(cardTitle, bodyMaxHeight, "rangeWorkout", false, "")
 	bodyCard.regionTapped.connect(setRegionFilter)
+	bodyCard.listenForLongPress()
+	bodyCard.regionLongPressed.connect(addRegionFilter)
 
 	tabs = Segmented.new()
 	tabs.fillWidth = true
@@ -135,7 +147,7 @@ func _build() -> void:
 	filterChip.toggle_mode = true
 	filterChip.button_pressed = true
 	filterRow.add_child(filterChip)
-	var why: Label = Ui.label("best match first", "FaintLabel")
+	var why: Label = Ui.label("best match first · hold a muscle to add more", "FaintLabel")
 	why.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	filterRow.add_child(why)
 	list = makeScroll(exercisesPanel)
@@ -161,14 +173,17 @@ func _build() -> void:
 
 func _buildChips() -> HScrollStrip:
 	### WHAT THIS DOES
-	# Filter by unused, All, then each equipment (most exercises first), then Show hidden - one
-	# sideways strip
+	# Below target (while a target preset is on), Filter by unused, All, then each equipment (most
+	# exercises first), then Show hidden - one sideways strip
 
 	var strip := HScrollStrip.new()
 	var row: HBoxContainer = Ui.hbox(6)
 	strip.add_child(Ui.margin(row, pagePad, 0, pagePad, 0))
+	targetChip = _chip(row, "Below target")
+	targetChip.pressed.connect(_onOrderChip.bind("target"))
+	targetChip.visible = Targets.hasActive()
 	unusedChip = _chip(row, "Filter by unused")
-	unusedChip.pressed.connect(_onUnusedChip)
+	unusedChip.pressed.connect(_onOrderChip.bind("unused"))
 	allChip = _chip(row, "All")
 	allChip.pressed.connect(setEquipment.bind([]))
 	var counts: Dictionary = {}
@@ -289,52 +304,96 @@ func _syncChips() -> void:
 	for equipmentName in equipmentChips:
 		equipmentChips[equipmentName].set_pressed_no_signal(equipment.has(equipmentName))
 	hiddenChip.set_pressed_no_signal(showHidden)
-	unusedChip.set_pressed_no_signal(unusedFirst)
+	unusedChip.set_pressed_no_signal(orderMode == "unused")
+	targetChip.set_pressed_no_signal(orderMode == "target")
 
 
-func setUnusedFirst(on: bool) -> void:
-	# unused muscles first; a tapped muscle's filter goes, since both decide the order
-	unusedFirst = on
-	if on and regionFilter != "":
-		regionFilter = ""
-		bodyCard.bodyView.selectedRegion = ""
+func setOrder(mode: String) -> void:
+	# "unused" / "target" first, or "" for neither; the picked muscles go, since they decide the order too
+	orderMode = mode
+	if mode != "" and regionFilters.size() > 0:
+		regionFilters = []
+		pickingSeveral = false
+		bodyCard.bodyView.selectedRegions = []
 	_syncChips()
 	refreshList()
 
 
-func _onUnusedChip() -> void:
-	setUnusedFirst(not unusedFirst)
+func _onOrderChip(mode: String) -> void:
+	if orderMode == mode:
+		setOrder("")
+	else:
+		setOrder(mode)
 
 
 func setRegionFilter(regionId: String) -> void:
-	### WHAT THIS DOES
-	# recommended exercises for one muscle; the body turns to a view that shows it
+	# a tap: just this muscle - or, once several are being picked, add / drop it
+	if pickingSeveral:
+		toggleRegionFilter(regionId)
+		return
+	regionFilters = [regionId]
+	_applyRegionFilters(regionId)
 
-	regionFilter = regionId
-	unusedFirst = false
+
+func addRegionFilter(regionId: String) -> void:
+	# a hold: starts picking several (the muscles picked so far stay) and adds / drops this one
+	pickingSeveral = true
+	toggleRegionFilter(regionId)
+
+
+func toggleRegionFilter(regionId: String) -> void:
+	if regionFilters.has(regionId):
+		regionFilters.erase(regionId)
+	else:
+		regionFilters.append(regionId)
+	if regionFilters.is_empty():
+		clearRegionFilter()
+		return
+	_applyRegionFilters(regionId)
+
+
+func _applyRegionFilters(lastRegionId: String) -> void:
+	### WHAT THIS DOES
+	# recommended exercises for the picked muscles; the body outlines them and turns to a view that
+	# shows the one just picked
+
+	orderMode = ""
 	_syncChips()
-	bodyCard.bodyView.selectedRegion = regionId
-	var views: Array = AppData.getRegion(regionId).get("views", [])
-	var viewMode: String = bodyCard.bodyView.viewMode
-	if viewMode != "both" and views.size() > 0 and not views.has(viewMode):
-		bodyCard.setView(str(views[0]))
+	bodyCard.bodyView.selectedRegions = regionFilters
+	if regionFilters.has(lastRegionId):
+		var views: Array = AppData.getRegion(lastRegionId).get("views", [])
+		var viewMode: String = bodyCard.bodyView.viewMode
+		if viewMode != "both" and views.size() > 0 and not views.has(viewMode):
+			bodyCard.setView(str(views[0]))
 	if currentTab != "exercises":
 		showTab("exercises")
 	refreshList()
 
 
 func clearRegionFilter() -> void:
-	regionFilter = ""
-	bodyCard.bodyView.selectedRegion = ""
+	regionFilters = []
+	pickingSeveral = false
+	bodyCard.bodyView.selectedRegions = []
 	refreshList()
+
+
+func _filterNames() -> String:
+	# "chest" / "chest + lats" / "4 muscles"
+	if regionFilters.size() > 2:
+		return "%d muscles" % regionFilters.size()
+	var names: Array = []
+	for regionId in regionFilters:
+		names.append(AppData.regionName(regionId).to_lower())
+	return " + ".join(names)
 
 
 ### /// RESULTS ///
 
 func computeResults() -> Array:
 	### WHAT THIS DOES
-	# with a muscle: HeatEngine.recommend order (search words still filter); without: favourites,
-	# then (no search) recently used, then the search order; hidden ones only with Show hidden
+	# with muscles picked: HeatEngine.recommend order (search words still filter); without: favourites,
+	# then (no search) recently used, then the search order; hidden ones only with Show hidden; the
+	# switched-on target presets' tags are worked out once here for the rows
 
 	var prefs: Dictionary = Storage.exercisePrefs
 	var used: Dictionary = Storage.usedExercises()
@@ -342,14 +401,20 @@ func computeResults() -> Array:
 	var rows: Array = []
 
 	resultShares = {}
-	unusedShares = {}
-	if regionFilter != "":
+	orderShares = {}
+	presetTags = {}
+	for preset in Targets.activePresets():
+		for exerciseId in preset["keyExercises"]:
+			if not presetTags.has(exerciseId):
+				presetTags[exerciseId] = []
+			presetTags[exerciseId].append(str(preset["name"]))
+	if regionFilters.size() > 0:
 		var allowed: Dictionary = {}
 		if hasQuery:
 			for exercise in AppData.search(query, equipment):
 				allowed[exercise["id"]] = true
 		var options: Dictionary = {"prefs": prefs, "used": used, "equipment": equipment, "showHidden": showHidden}
-		for recommended in HeatEngine.recommend(regionFilter, AppData.exercises, options):
+		for recommended in HeatEngine.recommend(regionFilters, AppData.exercises, options):
 			var exercise: Dictionary = recommended["exercise"]
 			if hasQuery and not allowed.has(exercise["id"]):
 				continue
@@ -374,15 +439,16 @@ func computeResults() -> Array:
 	rows.append_array(favourites)
 	rows.append_array(recent)
 	rows.append_array(rest)
-	if unusedFirst:
-		rows = _unusedOrder(rows)
+	if orderMode != "":
+		rows = _weightedOrder(rows)
 	return rows
 
 
-func _unusedOrder(rows: Array) -> Array:
+func _weightedOrder(rows: Array) -> Array:
 	### WHAT THIS DOES
-	# the muscles at 0 sets over the last 7 days plus this workout, and the list reordered so the
-	# exercises with the most share on them come first (HeatEngine.unusedFirst)
+	# the last 7 days plus this workout, the muscles that matter for the order (unused: at 0 sets;
+	# target: below their target, the further below the more weight) and the list reordered so the
+	# exercises with the most share on them come first (HeatEngine.weightedFirst)
 
 	var others: Array = []
 	var editId: String = ""
@@ -400,12 +466,16 @@ func _unusedOrder(rows: Array) -> Array:
 		heat[regionId] = float(heat.get(regionId, 0.0)) + float(workoutHeat[regionId])
 
 	# reorder
-	var unused: Dictionary = HeatEngine.unusedRegions(heat, Array(AppData.regionIds))
-	unusedCount = unused.size()
-	for row in HeatEngine.unusedFirst(rows, unused):
+	var weights: Dictionary = {}
+	if orderMode == "target":
+		weights = HeatEngine.belowTarget(heat, Targets.regionTargets())
+	else:
+		weights = HeatEngine.unusedRegions(heat, Array(AppData.regionIds))
+	orderCount = weights.size()
+	for row in HeatEngine.weightedFirst(rows, weights):
 		ordered.append(row["exercise"])
 		if float(row["share"]) > 0.0:
-			unusedShares[row["exercise"]["id"]] = float(row["share"])
+			orderShares[row["exercise"]["id"]] = float(row["share"])
 	return ordered
 
 
@@ -431,19 +501,25 @@ func refreshList(keepScroll: bool = false) -> void:
 	shownCount = 0
 
 	# filter chip + count line
-	filterRow.get_parent().visible = regionFilter != ""
-	filterChip.text = "for: %s  ×" % AppData.regionName(regionFilter)
+	filterRow.get_parent().visible = regionFilters.size() > 0
+	filterChip.text = "for: %s  ×" % _filterNames()
+	var muscleWord: String = "muscles"
+	if orderCount == 1:
+		muscleWord = "muscle"
 	if results.is_empty():
 		countLabel.text = "Nothing matches - try fewer words or clear a filter."
-	elif regionFilter != "":
-		countLabel.text = "%d exercises reach %s · tap a row to tick it" % [results.size(), AppData.regionName(regionFilter).to_lower()]
-	elif unusedFirst and unusedCount == 0:
+	elif regionFilters.size() > 0 and pickingSeveral:
+		countLabel.text = "%d exercises reach %s · tap or hold more muscles to add them" % [results.size(), _filterNames()]
+	elif regionFilters.size() > 0:
+		countLabel.text = "%d exercises reach %s · tap a row to tick it" % [results.size(), _filterNames()]
+	elif orderMode == "unused" and orderCount == 0:
 		countLabel.text = "%d exercises · no unused muscles this week" % results.size()
-	elif unusedFirst:
-		var muscleWord: String = "muscles"
-		if unusedCount == 1:
-			muscleWord = "muscle"
-		countLabel.text = "%d exercises · %d unused %s first" % [results.size(), unusedCount, muscleWord]
+	elif orderMode == "unused":
+		countLabel.text = "%d exercises · %d unused %s first" % [results.size(), orderCount, muscleWord]
+	elif orderMode == "target" and orderCount == 0:
+		countLabel.text = "%d exercises · every muscle is on target this week" % results.size()
+	elif orderMode == "target":
+		countLabel.text = "%d exercises · %d %s below target first" % [results.size(), orderCount, muscleWord]
 	else:
 		countLabel.text = "%d exercises · tap to tick · hold or swipe to star / hide" % results.size()
 
@@ -517,14 +593,14 @@ func _rowLook(exerciseId: String) -> String:
 	var share: String = ""
 	var inWorkout: bool = false
 	if resultShares.has(exerciseId):
-		share = "%s %s" % [Ui.formatSets(resultShares[exerciseId]), regionFilter]
-	elif unusedShares.has(exerciseId):
-		share = "%s unused" % Ui.formatSets(unusedShares[exerciseId])
+		share = "%s %s" % [Ui.formatSets(resultShares[exerciseId]), ",".join(regionFilters)]
+	elif orderShares.has(exerciseId):
+		share = "%s %s" % [Ui.formatSets(orderShares[exerciseId]), orderMode]
 	for entry in _workoutEntries():
 		if entry["exerciseId"] == exerciseId:
 			inWorkout = true
 			break
-	return "%s|%s|%s|%s" % [bool(pref["favourite"]), bool(pref["hidden"]), share, inWorkout]
+	return "%s|%s|%s|%s|%s" % [bool(pref["favourite"]), bool(pref["hidden"]), share, inWorkout, presetTags.get(exerciseId, [])]
 
 
 func _exerciseRow(exercise: Dictionary) -> TapRow:
@@ -564,9 +640,13 @@ func _exerciseRow(exercise: Dictionary) -> TapRow:
 	tags.add_theme_constant_override("v_separation", 4)
 	tags.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if resultShares.has(exerciseId):
-		tags.add_child(Ui.tag("× %s on %s" % [Ui.formatSets(resultShares[exerciseId]), AppData.regionName(regionFilter).to_lower()], Ui.colour("accent"), false))
-	elif unusedShares.has(exerciseId):
-		tags.add_child(Ui.tag("× %s on unused" % Ui.formatSets(unusedShares[exerciseId]), Ui.colour("accent"), false))
+		tags.add_child(Ui.tag("× %s on %s" % [Ui.formatSets(resultShares[exerciseId]), _filterNames()], Ui.colour("accent"), false))
+	elif orderShares.has(exerciseId) and orderMode == "target":
+		tags.add_child(Ui.tag("× %s below target" % Ui.formatSets(orderShares[exerciseId]), Ui.colour("accent"), false))
+	elif orderShares.has(exerciseId):
+		tags.add_child(Ui.tag("× %s on unused" % Ui.formatSets(orderShares[exerciseId]), Ui.colour("accent"), false))
+	for presetName in presetTags.get(exerciseId, []):
+		tags.add_child(Ui.tag(presetName, Ui.colour("neutral"), false))
 	if not bool(exercise.get("curated", false)):
 		tags.add_child(Ui.tag("rough data", Ui.colour("textMuted")))
 	if bool(pref["hidden"]):
@@ -633,7 +713,9 @@ func ghost() -> Dictionary:
 				entries.append({"exerciseId": entry["exerciseId"], "sets": maxi(int(entry["sets"]), 1), "grips": entry["grips"]})
 	else:
 		for exerciseId in selected:
-			entries.append({"exerciseId": exerciseId, "sets": maxi(_startSets(), 1), "grips": bool(Storage.getPref(exerciseId)["grips"])})
+			var entry: Dictionary = Storage.newEntry(exerciseId)
+			entry["sets"] = maxi(int(entry["sets"]), 1)
+			entries.append(entry)
 	return HeatEngine.effectiveSets(entries, AppData.exerciseById)
 
 
@@ -662,7 +744,7 @@ func addSelected() -> void:
 		return
 	var entries: Array = []
 	for exerciseId in selected:
-		entries.append({"exerciseId": exerciseId, "sets": _startSets(), "grips": bool(Storage.getPref(exerciseId)["grips"])})
+		entries.append(Storage.newEntry(exerciseId))
 	var word: String = "exercises"
 	if entries.size() == 1:
 		word = "exercise"
@@ -756,7 +838,7 @@ func _templateRow(template: Dictionary) -> TapRow:
 	var exerciseWord: String = "exercises"
 	if entries.size() == 1:
 		exerciseWord = "exercise"
-	box.add_child(Ui.label("%d %s · %d sets" % [entries.size(), exerciseWord, Ui.setCount(entries)], "MutedLabel"))
+	box.add_child(Ui.label("%d %s · %s" % [entries.size(), exerciseWord, Ui.workSummary(entries)], "MutedLabel"))
 	var names: Array = []
 	for entry in entries:
 		names.append(str(AppData.getExercise(entry["exerciseId"]).get("name", entry["exerciseId"])))
@@ -781,7 +863,7 @@ func previewTemplate(templateId: String) -> void:
 
 func applyTemplate(templateId: String) -> void:
 	### WHAT THIS DOES
-	# its exercises with their sets and grips - or at 0 sets (planned) when that setting is on
+	# its exercises with their sets, grips, minutes and efforts - or at 0 (planned) when that setting is on
 
 	var index: int = Storage.findTemplateIndex(templateId)
 	if index < 0:
@@ -789,10 +871,12 @@ func applyTemplate(templateId: String) -> void:
 	var template: Dictionary = Storage.templates[index]
 	var entries: Array = []
 	for entry in template["entries"]:
-		var sets: int = int(entry["sets"])
+		var copy: Dictionary = entry.duplicate()
 		if _startSets() == 0:
-			sets = 0
-		entries.append({"exerciseId": entry["exerciseId"], "sets": sets, "grips": bool(entry["grips"])})
+			copy["sets"] = 0
+			if copy.has("minutes"):
+				copy["minutes"] = 0
+		entries.append(copy)
 	_deliver(entries, "Added %s · %d exercises" % [str(template["name"]), entries.size()])
 
 

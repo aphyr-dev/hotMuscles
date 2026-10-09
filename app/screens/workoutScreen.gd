@@ -6,14 +6,17 @@ extends AppScreen
 ## - WorkoutScreen.createEditor(workoutId)    a finished workout, edited on a copy until Save changes
 ## - entries() -> the shown entries; live, editId, editWorkout, dirty
 ## - setSets(index, sets), changeSets(index, delta), setGrips(index, on), removeEntry(index) (undo toast),
-##   addExercises(exerciseIds) (sets from the "new exercises start at" setting, grips remembered),
-##   addEntries([{exerciseId, sets, grips}]) (templates), openPicker()
+##   addExercises(exerciseIds) (Storage.newEntry: the "new exercises start at" setting, grips and
+##   cardio effort remembered), addEntries([entry]) (templates), openPicker()
+## - cardio exercises log minutes and how hard it felt instead of sets: setMinutes(index, minutes),
+##   changeMinutes(index, delta) (steps of minuteStep), setEffort(index, effortId) (remembered per
+##   exercise); they light the home page's cardio overlay, not the muscles
 ## - live: requestFinish() -> confirm sheet -> optional save-as-template sheet -> the week, animated;
 ##   discard from the confirm sheet (undo on the toast)
 ## - editor: saveChanges(); back with unsaved changes asks first
 ## - the exercise list shows the newest exercise on top (the saved order stays oldest first)
-## - the body card shows only this workout's heat (amount colouring, its own 0-N); 0-set entries
-##   are "planned": a ghost outline on the body and a dashed-look row
+## - the body card shows only this workout's heat (amount colouring, its own 0-N); entries with 0 sets
+##   (0 minutes for cardio) are "planned": a ghost outline on the body and a dashed-look row
 ## - its "+ Week" chip (setShowWeek(on), remembered in the workoutShowWeek setting) adds the last 7 days
 ##   of finished workouts to the body, on the week's own 0-N - the same numbers as the week screen
 ## - grips checkbox only on exercises with forearmKind "grip" (ticked = no forearm heat)
@@ -31,6 +34,9 @@ const stepperNumberWidth: float = 40.0
 const plannedGhostSets: int = 1
 # most sets the stepper allows
 const maxSets: int = 99
+# cardio: minutes per stepper press, and the small word under the number
+const minuteStep: int = 5
+const minuteWord: String = "min"
 # body card title and hint, with and without the week added
 const titleWorkout: String = "This workout"
 const titleWithWeek: String = "Workout + week"
@@ -216,6 +222,36 @@ func setGrips(index: int, on: bool) -> void:
 	refreshRows(true)
 
 
+func setMinutes(index: int, minutes: int) -> void:
+	var clamped: int = clampi(minutes, 0, Storage.maxMinutes)
+	if index < 0 or index >= entries().size():
+		return
+	if live:
+		Storage.setEntryMinutes(index, clamped)
+	else:
+		editWorkout["entries"][index]["minutes"] = clamped
+		_markDirty()
+	refreshRows(true)
+
+
+func changeMinutes(index: int, delta: int) -> void:
+	if index < 0 or index >= entries().size():
+		return
+	setMinutes(index, int(entries()[index].get("minutes", 0)) + delta)
+
+
+func setEffort(index: int, effortId: String) -> void:
+	if index < 0 or index >= entries().size() or not AppData.effortById.has(effortId):
+		return
+	if live:
+		Storage.setEntryEffort(index, effortId)
+	else:
+		editWorkout["entries"][index]["effort"] = effortId
+		Storage.setEffortMemory(str(editWorkout["entries"][index]["exerciseId"]), effortId)
+		_markDirty()
+	refreshRows(true)
+
+
 func removeEntry(index: int) -> void:
 	### WHAT THIS DOES
 	# takes the exercise out at once; the toast's Undo puts it back where it was
@@ -246,11 +282,10 @@ func _undoRemove(index: int, entry: Dictionary) -> void:
 
 
 func addExercises(exerciseIds: Array) -> void:
-	# new entries with the "new exercises start at" sets and each exercise's remembered grips
+	# new entries as the settings say (Storage.newEntry)
 	var list: Array = []
-	var startSets: int = int(Storage.settings["newExerciseSets"])
 	for exerciseId in exerciseIds:
-		list.append({"exerciseId": exerciseId, "sets": startSets, "grips": bool(Storage.getPref(exerciseId)["grips"])})
+		list.append(Storage.newEntry(exerciseId))
 	addEntries(list)
 
 
@@ -259,7 +294,7 @@ func addEntries(list: Array) -> void:
 		Storage.addEntries(list)
 	else:
 		for entry in list:
-			editWorkout["entries"].append({"exerciseId": str(entry["exerciseId"]), "sets": maxi(int(entry["sets"]), 0), "grips": bool(entry["grips"])})
+			editWorkout["entries"].append(entry.duplicate())
 		_markDirty()
 	refreshRows(true)
 
@@ -326,12 +361,10 @@ func refreshRows(animate: bool) -> void:
 	var list: Array = entries()
 	var ids: Array = []
 	var planned: Array = []
-	var loggedSets: int = 0
 
 	for entry in list:
 		ids.append(str(entry["exerciseId"]))
-		loggedSets += int(entry["sets"])
-		if int(entry["sets"]) == 0:
+		if not HeatEngine.isLogged(entry):
 			planned.append({"exerciseId": entry["exerciseId"], "sets": plannedGhostSets, "grips": entry["grips"]})
 
 	var heat: Dictionary = HeatEngine.effectiveSets(list, AppData.exerciseById)
@@ -344,7 +377,7 @@ func refreshRows(animate: bool) -> void:
 	var exerciseWord: String = "exercises"
 	if list.size() == 1:
 		exerciseWord = "exercise"
-	summaryLabel.text = "%d %s · %d sets" % [list.size(), exerciseWord, loggedSets]
+	summaryLabel.text = "%d %s · %s" % [list.size(), exerciseWord, Ui.workSummary(list)]
 	emptyLabel.visible = list.is_empty()
 
 	# newest exercise on top - rowParts follows the saved order, the rows on screen run backwards;
@@ -367,9 +400,11 @@ func refreshRows(animate: bool) -> void:
 
 func _makeRow(index: int, entry: Dictionary) -> Dictionary:
 	### WHAT THIS DOES
-	# name + summary, the - n + stepper, remove, and the grips box on grip exercises
+	# name + summary, the - n + stepper (sets, or minutes on cardio), remove, the grips box on grip
+	# exercises and the Easy / Hard / Very hard chips on cardio
 
 	var exercise: Dictionary = AppData.getExercise(str(entry["exerciseId"]))
+	var cardio: bool = entry.has("minutes")
 	var row := TapRow.new()
 	row.setSwipeActions({}, {"id": "remove", "text": "Remove", "colour": Ui.colour("hot")})
 	row.swiped.connect(_onRowSwiped.bind(index))
@@ -393,20 +428,30 @@ func _makeRow(index: int, entry: Dictionary) -> Dictionary:
 	plannedTag.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	texts.add_child(plannedTag)
 
-	# stepper
+	# stepper (minutes in steps of minuteStep on cardio, with a small "min" under the number)
 	var stepper: HBoxContainer = Ui.hbox(0)
 	stepper.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	line.add_child(stepper)
+	var step: int = 1
+	if cardio:
+		step = minuteStep
 	var minus: Button = Ui.iconButton("minus", "Button", "text")
-	minus.pressed.connect(_onStep.bind(index, -1))
+	minus.pressed.connect(_onStep.bind(index, -step))
 	stepper.add_child(minus)
+	var number: VBoxContainer = Ui.vbox(0)
+	number.alignment = BoxContainer.ALIGNMENT_CENTER
+	stepper.add_child(number)
 	var setsLabel: Label = Ui.label("0", "BoldLabel")
 	setsLabel.custom_minimum_size.x = stepperNumberWidth
 	setsLabel.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	setsLabel.add_theme_font_size_override("font_size", stepperFontSize)
-	stepper.add_child(setsLabel)
+	number.add_child(setsLabel)
+	if cardio:
+		var unit: Label = Ui.label(minuteWord, "FaintLabel")
+		unit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		number.add_child(unit)
 	var plus: Button = Ui.iconButton("plus", "Button", "text")
-	plus.pressed.connect(_onStep.bind(index, 1))
+	plus.pressed.connect(_onStep.bind(index, step))
 	stepper.add_child(plus)
 	var remove: Button = Ui.iconButton("close", "FlatButton", "textMuted")
 	remove.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -423,14 +468,34 @@ func _makeRow(index: int, entry: Dictionary) -> Dictionary:
 		grips.toggled.connect(_onGripsToggled.bind(index))
 		box.add_child(grips)
 
-	return {"row": row, "setsLabel": setsLabel, "minus": minus, "plus": plus, "plannedTag": plannedTag, "grips": grips, "meta": meta}
+	# how hard it felt (cardio) - its hint under the chips says what each means
+	var effortChips: Segmented = null
+	var effortHint: Label = null
+	if cardio:
+		effortChips = Segmented.new()
+		effortChips.fillWidth = true
+		var options: Array = []
+		for effort in AppData.cardioEfforts:
+			options.append([effort["id"], effort["label"]])
+		effortChips.setOptions(options, str(entry.get("effort", "")))
+		effortChips.changed.connect(_onEffortPicked.bind(index))
+		box.add_child(effortChips)
+		effortHint = Ui.wrapLabel("", "FaintLabel")
+		box.add_child(effortHint)
+
+	return {"row": row, "setsLabel": setsLabel, "minus": minus, "plus": plus, "plannedTag": plannedTag, "grips": grips, "meta": meta, "cardio": cardio, "effortChips": effortChips, "effortHint": effortHint}
 
 
 func _updateRow(parts: Dictionary, entry: Dictionary) -> void:
-	var sets: int = int(entry["sets"])
-	var planned: bool = sets == 0
+	var planned: bool = not HeatEngine.isLogged(entry)
 	var row: TapRow = parts["row"]
-	parts["setsLabel"].text = str(sets)
+	if parts["cardio"]:
+		parts["setsLabel"].text = str(int(entry.get("minutes", 0)))
+		var effortId: String = str(entry.get("effort", ""))
+		parts["effortChips"].select(effortId, false)
+		parts["effortHint"].text = str(AppData.effortById.get(effortId, {}).get("hint", ""))
+	else:
+		parts["setsLabel"].text = str(int(entry["sets"]))
 	parts["minus"].disabled = planned
 	parts["plannedTag"].visible = planned
 	if parts["grips"] != null:
@@ -442,7 +507,14 @@ func _updateRow(parts: Dictionary, entry: Dictionary) -> void:
 
 
 func _onStep(index: int, delta: int) -> void:
+	if index >= 0 and index < entries().size() and entries()[index].has("minutes"):
+		changeMinutes(index, delta)
+		return
 	changeSets(index, delta)
+
+
+func _onEffortPicked(effortId: String, index: int) -> void:
+	setEffort(index, effortId)
 
 
 func _onGripsToggled(on: bool, index: int) -> void:
@@ -471,22 +543,20 @@ func requestFinish() -> BottomSheet:
 	# confirm first; with nothing logged the choice is keep going or discard
 
 	var list: Array = entries()
-	var logged: int = 0
+	var logged: Array = []
 	var planned: int = 0
-	var sets: int = 0
 	for entry in list:
-		if int(entry["sets"]) > 0:
-			logged += 1
-			sets += int(entry["sets"])
+		if HeatEngine.isLogged(entry):
+			logged.append(entry)
 		else:
 			planned += 1
 	var length: float = Time.get_unix_time_from_system() - float(Storage.currentWorkout().get("startedAt", 0.0))
-	if logged == 0:
+	if logged.is_empty():
 		var emptyActions: Array = [["keep", "Keep going", "AccentButton"], ["discard", "Discard workout", "FlatButton"]]
-		return app.confirm("Nothing logged yet", "Add sets to at least one exercise to finish, or throw this workout away.", emptyActions, _onFinishChoice)
-	var message: String = "%d exercises · %d sets · %s" % [logged, sets, Ui.formatClock(length)]
+		return app.confirm("Nothing logged yet", "Add sets (or cardio minutes) to at least one exercise to finish, or throw this workout away.", emptyActions, _onFinishChoice)
+	var message: String = "%d exercises · %s · %s" % [logged.size(), Ui.workSummary(logged), Ui.formatClock(length)]
 	if planned > 0:
-		message += "\n%d planned exercise(s) with 0 sets will be left out." % planned
+		message += "\n%d planned exercise(s) with nothing logged will be left out." % planned
 	var actions: Array = [["finish", "Finish workout", "AccentButton"], ["keep", "Keep going", "Button"], ["discard", "Discard workout", "FlatButton"]]
 	return app.confirm("Finish workout?", message, actions, _onFinishChoice)
 
@@ -521,7 +591,7 @@ func _backToWeek(done: Dictionary) -> void:
 	app.pop(true)
 	if week != null:
 		week.showFinished(done)
-	app.showToast("Workout added to your week · %d sets" % Ui.setCount(done.get("entries", [])))
+	app.showToast("Workout added to your week · %s" % Ui.workSummary(done.get("entries", [])))
 
 
 func discard() -> void:
@@ -534,10 +604,10 @@ func discard() -> void:
 ### /// SAVE (EDITOR) ///
 
 func saveChanges() -> void:
-	# planned (0-set) entries are dropped, like on finish
+	# planned entries (nothing logged) are dropped, like on finish
 	var kept: Array = []
 	for entry in editWorkout.get("entries", []):
-		if int(entry["sets"]) > 0:
+		if HeatEngine.isLogged(entry):
 			kept.append(entry)
 	editWorkout["entries"] = kept
 	Storage.updateWorkout(editWorkout)

@@ -38,6 +38,8 @@ uniform float ghostLineLow = 0.55;
 uniform float ghostDashShare = 0.6;
 // blue steps per texel of edge distance (AppData.mapEdgeSteps)
 uniform float edgeSteps = 64.0;
+// how much the figure darkens under an overlay drawn on top (the cardio vessels), 0 = not at all
+uniform float dim = 0.0;
 
 /// TUNING ///
 
@@ -260,5 +262,6 @@ void fragment() {
 			}
 		}
 	}
+	colour.rgb *= 1.0 - dim;
 	COLOR = colour;
 }

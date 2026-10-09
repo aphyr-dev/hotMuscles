@@ -615,7 +615,7 @@ func _checkRegionSheetToPicker() -> void:
 	var sheet: Node = week.openRegion("lowerChest")
 	await _wait(settleSeconds)
 	_expectEqual("region sheet title", sheet.titleLabel.text, "Mid/lower chest")
-	_expectEqual("region outlined on the body", week.bodyCard.bodyView.selectedRegion, "lowerChest")
+	_expectEqual("region outlined on the body", week.bodyCard.bodyView.selectedRegions, ["lowerChest"])
 	_expectEqual("contributions listed (only the bench reaches it)", int(sheet.get_meta("contributionCount")), 1)
 	_expectTrue("sets this week shown", _findText(sheet, _formatSets(float(week.shownHeat["lowerChest"]))))
 	sheet.choose("find")
@@ -623,7 +623,7 @@ func _checkRegionSheetToPicker() -> void:
 	var picker: Node = app.top()
 	_expectTrue("Find exercises opens the picker", _isA(picker, "PickerScreen"))
 	_expectEqual("filtered to that muscle", picker.regionFilter, "lowerChest")
-	_expectEqual("region cleared on the week when the sheet closed", week.bodyCard.bodyView.selectedRegion, "")
+	_expectEqual("region cleared on the week when the sheet closed", week.bodyCard.bodyView.selectedRegions, [])
 	var allReach: bool = picker.results.size() > 0
 	for exercise in picker.results:
 		if _share(exercise["id"], "lowerChest") <= 0.0:

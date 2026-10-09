@@ -113,7 +113,7 @@ func _checkBodyTapAndDim() -> void:
 	await _wait(settleSeconds)
 	var sheet: Node = app.topSheet()
 	_expectTrue("tap on the chest opens the chest sheet", sheet != null and str(sheet.get_meta("regionId", "")) == "lowerChest")
-	_expectEqual("chest outlined", body.selectedRegion, "lowerChest")
+	_expectEqual("chest outlined", body.selectedRegions, ["lowerChest"])
 	await _tap(Vector2(215.0, 60.0))
 	await _wait(settleSeconds)
 	_expectTrue("tap on the dim closes the sheet", app.topSheet() == null)
