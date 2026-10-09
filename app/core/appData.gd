@@ -3,10 +3,11 @@ extends Node
 ## what this offers
 ## - regions: [{id, name, group, views, band: [low, high]}] in body order; regionById; regionIds
 ## - groups: [{id, name}]
-## - exercises: [{id, name, equipment, category, targets: [{region, share}], forearmKind, curated}]
+## - exercises: [{id, name, equipment, category, targets: [{region, share}], forearmKind, curated,
+##   aliases (optional: other names search matches, e.g. "pec deck")}]
 ##   sorted by name; exerciseById
 ## - getRegion(id) / regionName(id) / regionBand(id) / getExercise(id) / exerciseShare(exerciseId, regionId)
-## - search(query, equipmentFilter = [], limit = 0)   name search, every word must match
+## - search(query, equipmentFilter = [], limit = 0)   name + alias search, every word must match
 ## - equipmentList()                                   every equipment name, sorted
 ## - exercisesForRegion(regionId)                      exercises that reach a region, biggest share first
 ## - bodyView(body, view)  what BodyView needs for one figure (all baked by tools/appData, nothing
@@ -105,7 +106,11 @@ func loadAll(folder: String) -> bool:
 	searchNames.clear()
 	for exercise in exercises:
 		exerciseById[exercise["id"]] = exercise
-		searchNames[exercise["id"]] = _normaliseName(exercise["name"])
+		# the name first (a query matching its start ranks highest), then the aliases ("pec deck")
+		var searchText: String = _normaliseName(exercise["name"])
+		for alias in exercise.get("aliases", []):
+			searchText += "|" + _normaliseName(str(alias))
+		searchNames[exercise["id"]] = searchText
 	_sortSearchOrder()
 
 	viewCache.clear()

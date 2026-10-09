@@ -9,7 +9,9 @@ what this offers
 - appData/bodyMaps/<body>_<view>.png - the baked region maps the app draws (tools/appData/bakeBodyMaps.py),
                            each with a .import that tells Godot to ship the png untouched ("keep")
 - appData/exercises.json - every exercise of the free exercise database, each turned into
-                           region shares, plus the hand-tuned ones from curatedExercises.json
+                           region shares: hand-tuned (curatedExercises.json) first, then researched
+                           (researchedExercises.json), then the automatic guess; plus the added
+                           exercises of both files and each exercise's search aliases
 - loud checks: exits non-zero on an unknown exercise or region id, a share outside 0..1, or a
   region that no exercise can reach
 
@@ -157,9 +159,12 @@ projectDir = toolDir.parent.parent
 shapesPath = projectDir / "data" / "muscleShapes" / "muscleShapes.json"
 exerciseDbPath = projectDir / "data" / "freeExerciseDb" / "dist" / "exercises.json"
 curatedPath = toolDir / "curatedExercises.json"
+researchedPath = toolDir / "researchedExercises.json"
 outDir = projectDir / "appData"
 
 forearmKinds = ["none", "grip", "direct"]
+# researched rows at these confidences count as checked data; the rest still show "rough data"
+checkedConfidences = ["high", "medium"]
 
 ### /// HELPERS ///
 
@@ -172,11 +177,11 @@ def fail(message):
 
 
 def rejectDuplicateKeys(pairs):
-    # json hook - a repeated key in the curated file is an error, never a silent overwrite
+    # json hook - a repeated key in a hand-made data file is an error, never a silent overwrite
     result = {}
     for key, value in pairs:
         if key in result:
-            fail("curatedExercises.json: key '%s' appears twice" % key)
+            fail("curated / researched exercises: key '%s' appears twice" % key)
         result[key] = value
     return result
 
@@ -377,14 +382,26 @@ def checkForearmKind(owner, kind, shares):
         fail("%s: forearmKind '%s' but no forearms share" % (owner, kind))
 
 
-def buildExercises(database, curated, regionSet):
+def buildExercises(database, curated, researched, regionSet):
     ### WHAT THIS DOES
-    # every database exercise auto-converted, curated ones overridden, added ones appended
+    # every database exercise: hand-tuned shares if curated, else researched, else auto-converted;
+    # the added exercises of both files appended; aliases attached for search
 
     exercises = []
     databaseIds = set()
     curatedRows = curated.get("exercises", {})
-    addedRows = curated.get("added", {})
+    researchedRows = researched.get("exercises", {})
+    aliasRows = researched.get("aliases", {})
+    addedRows = dict(curated.get("added", {}))
+
+    # researched added exercises join the curated ones (an id in both is an error)
+    for exerciseId, row in researched.get("added", {}).items():
+        if exerciseId in addedRows:
+            fail("added '%s' is in both curatedExercises.json and researchedExercises.json" % exerciseId)
+        addedRows[exerciseId] = row
+    for exerciseId in researchedRows:
+        if exerciseId not in curatedRows and exerciseId in addedRows:
+            fail("researched '%s' is listed under exercises but is an added one" % exerciseId)
 
     # curated ids must exist in the database, added ids must not
     for entry in database:
@@ -405,11 +422,16 @@ def buildExercises(database, curated, regionSet):
         category = entry.get("category") or "other"
         equipment = entry.get("equipment") or missingEquipment
         isCurated = exerciseId in curatedRows
-        if isCurated:
-            row = curatedRows[exerciseId]
+        if isCurated or exerciseId in researchedRows:
+            row = researchedRows.get(exerciseId)
+            owner = "researched '%s'" % exerciseId
+            if isCurated:
+                row = curatedRows[exerciseId]
+                owner = "curated '%s'" % exerciseId
+            else:
+                isCurated = row.get("confidence", "low") in checkedConfidences
             shares = dict(row.get("targets", {}))
             kind = row.get("forearmKind", "none")
-            owner = "curated '%s'" % exerciseId
             checkShares(owner, shares, regionSet)
             checkForearmKind(owner, kind, shares)
             if category in zeroHeatCategories:
@@ -450,8 +472,20 @@ def buildExercises(database, curated, regionSet):
             "category": row.get("category", "strength"),
             "targets": targetList(shares),
             "forearmKind": kind,
-            "curated": True,
+            "curated": row.get("confidence", "high") in checkedConfidences,
         })
+
+    # search aliases (every id must exist)
+    knownIds = set()
+    for exercise in exercises:
+        knownIds.add(exercise["id"])
+    for exerciseId in aliasRows:
+        if exerciseId not in knownIds:
+            fail("aliases name '%s', which is not an exercise" % exerciseId)
+    for exercise in exercises:
+        words = aliasRows.get(exercise["id"], [])
+        if len(words) > 0:
+            exercise["aliases"] = list(words)
 
     exercises.sort(key=lambda item: item["name"].lower())
     return exercises
@@ -466,7 +500,7 @@ def main():
     reach = {}
 
     # sources
-    for path in [shapesPath, exerciseDbPath, curatedPath]:
+    for path in [shapesPath, exerciseDbPath, curatedPath, researchedPath]:
         if not path.exists():
             print("MISSING source file: %s" % path)
             if path == exerciseDbPath:
@@ -478,11 +512,13 @@ def main():
         database = json.load(handle)
     with open(curatedPath, encoding="utf-8") as handle:
         curated = json.load(handle, object_pairs_hook=rejectDuplicateKeys)
+    with open(researchedPath, encoding="utf-8") as handle:
+        researched = json.load(handle, object_pairs_hook=rejectDuplicateKeys)
 
     # build
     muscles, regionIds = buildMuscles(shapes)
     regionSet = set(regionIds)
-    exercises = buildExercises(database, curated, regionSet)
+    exercises = buildExercises(database, curated, researched, regionSet)
 
     # every region must be reachable by at least one exercise
     for regionId in regionIds:
@@ -519,8 +555,9 @@ def main():
             zeroCount += 1
     print("buildAppData OK")
     print("  regions: %d   bodies: %s" % (len(regionIds), ", ".join(sorted(muscles["bodies"].keys()))))
-    print("  exercises: %d  (database %d + added %d)" % (len(exercises), len(database), len(curated.get("added", {}))))
-    print("  curated: %d   zero-heat (stretching/cardio): %d" % (curatedCount, zeroCount))
+    addedCount = len(curated.get("added", {})) + len(researched.get("added", {}))
+    print("  exercises: %d  (database %d + added %d)" % (len(exercises), len(database), addedCount))
+    print("  checked data: %d   rough data: %d   zero-heat (stretching/cardio): %d" % (curatedCount, len(exercises) - curatedCount - zeroCount, zeroCount))
     print("  muscles.json %d KB   exercises.json %d KB" % (musclesPath.stat().st_size // 1024, exercisesPath.stat().st_size // 1024))
     print("  exercises reaching each region:")
     line = "   "
